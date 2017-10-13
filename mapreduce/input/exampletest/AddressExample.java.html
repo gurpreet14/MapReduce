@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>AddressExample.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gurpreetkaur_chabada_hw1</a> &gt; <a href="index.source.html" class="el_package">com.opencsv</a> &gt; <span class="el_source">AddressExample.java</span></div><h1>AddressExample.java</h1><pre class="source lang-java linenums">package com.opencsv;
+
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.util.List;
+
+/**
+ * Copyright 2005 Bytecode Pty Ltd.
+ * &lt;p/&gt;
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * &lt;p/&gt;
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * &lt;p/&gt;
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+<span class="nc" id="L23">public class AddressExample {</span>
+
+    private static final String ADDRESS_FILE = &quot;examples/addresses.csv&quot;;
+
+    public static void main(String[] args) throws IOException {
+
+<span class="nc" id="L29">        CSVReader reader = new CSVReader(new FileReader(ADDRESS_FILE));</span>
+        String[] nextLine;
+<span class="nc bnc" id="L31" title="All 2 branches missed.">        while ((nextLine = reader.readNext()) != null) {</span>
+
+<span class="nc" id="L33">            System.out.println(&quot;Name: [&quot; + nextLine[0] + &quot;]\nAddress: [&quot; + nextLine[1] + &quot;]\nEmail: [&quot; + nextLine[2] + &quot;]&quot;);</span>
+            try {
+//                Thread.sleep(100000);
+            }
+            catch(Exception e)
+            {
+
+            }
+        }
+
+
+        // Try writing it back out as CSV to the console
+<span class="nc" id="L45">        CSVReader reader2 = new CSVReader(new FileReader(ADDRESS_FILE));</span>
+<span class="nc" id="L46">        List&lt;String[]&gt; allElements = reader2.readAll();</span>
+<span class="nc" id="L47">        StringWriter sw = new StringWriter();</span>
+<span class="nc" id="L48">        CSVWriter writer = new CSVWriter(sw);</span>
+<span class="nc" id="L49">        writer.writeAll(allElements);</span>
+
+<span class="nc" id="L51">        System.out.println(&quot;\n\nGenerated CSV File:\n\n&quot;);</span>
+<span class="nc" id="L52">        System.out.println(sw.toString());</span>
+
+
+<span class="nc" id="L55">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.6.201602180812</span></div></body></html>

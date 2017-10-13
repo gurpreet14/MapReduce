@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>RFC4180Parser.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gurpreetkaur_chabada_hw1</a> &gt; <a href="index.source.html" class="el_package">com.opencsv</a> &gt; <span class="el_source">RFC4180Parser.java</span></div><h1>RFC4180Parser.java</h1><pre class="source lang-java linenums">package com.opencsv;
+
+import com.opencsv.enums.CSVReaderNullFieldIndicator;
+import org.apache.commons.lang3.StringUtils;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
+
+/**
+ * This Parser is meant to parse according to the RFC4180 specification.
+ * &lt;p&gt;Since it shares the same interface with the CSVParser there are methods here that will do nothing.
+ * For example the RFC4180 specification does not have an concept of an escape character so the getEscape method
+ * will return char 0.  The methods that are not supported are noted in the Javadocs.&lt;/p&gt;
+ * &lt;p&gt;Another departure from the CSVParser is that there is only two constructors and only one is available publicly.
+ * The intent is that if you want to create anything other than a default RFC4180Parser you should use the
+ * CSVParserBuilder.  This way the code will not become cluttered with constructors as the CSVParser did.&lt;/p&gt;
+ * &lt;p&gt;Examples:&lt;/p&gt;
+ * {@code
+ * ICSVParser parser = new RFC4180Parser();
+ * }
+ * &lt;p&gt;or&lt;/p&gt;
+ * {@code
+ * CSVParserBuilder builder = new CSVParserBuilder()
+ * ICSVParser parser = builder.withParserType(ParserType.RFC4180Parser).build()
+ * }
+ *
+ * @author Scott Conway
+ * @since 3.9
+ */
+
+public class RFC4180Parser implements ICSVParser {
+
+    /**
+     * This is needed by the split command in case the separator character is a regex special character.
+     */
+<span class="nc" id="L38">    private static final Pattern SPECIAL_REGEX_CHARS = Pattern.compile(&quot;[{}()\\[\\].+*?^$\\\\|]&quot;);</span>
+
+    /**
+     * This is the character that the RFC4180Parser will treat as the separator.
+     */
+    private final char separator;
+
+    /**
+     * Separator character as String (used for split command).
+     */
+    private final String separatorAsString;
+
+    /**
+     * This is the character that the RFC4180Parser will treat as the quotation character.
+     */
+    private final char quotechar;
+
+    /**
+     * This is the fields that the parser will automatically return null.
+     */
+    private final CSVReaderNullFieldIndicator nullFieldIndicator;
+
+    /**
+     * This is what was from a previous read of a multi-lined csv record.
+     */
+    private String pending;
+
+    /**
+     * Default constructor for the RFC4180Parser.  Uses values from the ICSVParser.
+     */
+    public RFC4180Parser() {
+<span class="nc" id="L69">        this(ICSVParser.DEFAULT_QUOTE_CHARACTER, ICSVParser.DEFAULT_SEPARATOR, CSVReaderNullFieldIndicator.NEITHER);</span>
+<span class="nc" id="L70">    }</span>
+
+    /**
+     * Constructor used by the CSVParserBuilder.
+     *
+     * @param separator The delimiter to use for separating entries
+     * @param quoteChar The character to use for quoted elements
+     * @param nullFieldIndicator Indicate what should be considered null
+     */
+<span class="nc" id="L79">    RFC4180Parser(char quoteChar, char separator, CSVReaderNullFieldIndicator nullFieldIndicator) {</span>
+<span class="nc" id="L80">        this.quotechar = quoteChar;</span>
+<span class="nc" id="L81">        this.separator = separator;</span>
+<span class="nc" id="L82">        this.separatorAsString = SPECIAL_REGEX_CHARS.matcher(Character.toString(separator)).replaceAll(&quot;\\\\$0&quot;);</span>
+<span class="nc" id="L83">        this.nullFieldIndicator = nullFieldIndicator;</span>
+<span class="nc" id="L84">    }</span>
+
+    @Override
+    public char getSeparator() {
+<span class="nc" id="L88">        return separator;</span>
+    }
+
+    @Override
+    public char getQuotechar() {
+<span class="nc" id="L93">        return quotechar;</span>
+    }
+
+    @Override
+    public boolean isPending() {
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        return pending != null;</span>
+    }
+
+    @Override
+    public String[] parseLineMulti(String nextLine) throws IOException {
+<span class="nc" id="L103">        return parseLine(nextLine, true);</span>
+    }
+
+    @Override
+    public String[] parseLine(String nextLine) throws IOException {
+<span class="nc" id="L108">        return parseLine(nextLine, false);</span>
+    }
+
+    /**
+     * Parses an incoming String and returns an array of elements.
+     *
+     * @param nextLine The string to parse
+     * @param multi    Does it take multiple lines to form a single record?
+     * @return The list of elements, or null if nextLine is null
+     * @throws IOException If bad things happen during the read
+     */
+    protected String[] parseLine(String nextLine, boolean multi) throws IOException {
+        String[] elements;
+
+<span class="nc bnc" id="L122" title="All 4 branches missed.">        if (!multi &amp;&amp; pending != null) {</span>
+<span class="nc" id="L123">            pending = null;</span>
+        }
+
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        if (nextLine == null) {</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">            if (pending != null) {</span>
+<span class="nc" id="L128">                String s = pending;</span>
+<span class="nc" id="L129">                pending = null;</span>
+<span class="nc" id="L130">                return new String[]{s};</span>
+            }
+<span class="nc" id="L132">            return null;</span>
+        }
+
+<span class="nc bnc" id="L135" title="All 4 branches missed.">        String lineToProcess = multi &amp;&amp; pending != null ? pending + nextLine : nextLine;</span>
+<span class="nc" id="L136">        pending = null;</span>
+
+<span class="nc bnc" id="L138" title="All 2 branches missed.">        if (!StringUtils.contains(lineToProcess, quotechar)) {</span>
+<span class="nc" id="L139">            elements = handleEmptySeparators(tokenizeStringIntoArray(lineToProcess));</span>
+        } else {
+<span class="nc" id="L141">            elements = handleEmptySeparators(splitWhileNotInQuotes(lineToProcess, multi));</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">            for (int i = 0; i &lt; elements.length; i++) {</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">                if (StringUtils.contains(elements[i], quotechar)) {</span>
+<span class="nc" id="L144">                    elements[i] = handleQuotes(elements[i]);</span>
+                }
+            }
+        }
+<span class="nc" id="L148">        return elements;</span>
+    }
+
+    private String[] tokenizeStringIntoArray(String nextLine) {
+<span class="nc" id="L152">        return nextLine.split(separatorAsString, -1);</span>
+    }
+
+    private String[] handleEmptySeparators(String[] strings) {
+<span class="nc bnc" id="L156" title="All 4 branches missed.">        if (nullFieldIndicator == CSVReaderNullFieldIndicator.EMPTY_SEPARATORS || nullFieldIndicator == CSVReaderNullFieldIndicator.BOTH) {</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">            for (int i = 0; i &lt; strings.length; i++) {</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">                if (strings[i].isEmpty()) {</span>
+<span class="nc" id="L159">                    strings[i] = null;</span>
+                }
+            }
+        }
+<span class="nc" id="L163">        return strings;</span>
+    }
+
+    private String[] splitWhileNotInQuotes(String nextLine, boolean multi) {
+<span class="nc" id="L167">        int currentPosition = 0;</span>
+<span class="nc" id="L168">        List&lt;String&gt; elements = new ArrayList&lt;&gt;();</span>
+        int nextSeparator;
+        int nextQuote;
+
+
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        while (currentPosition &lt; nextLine.length()) {</span>
+<span class="nc" id="L174">            nextSeparator = nextLine.indexOf(separator, currentPosition);</span>
+<span class="nc" id="L175">            nextQuote = nextLine.indexOf(quotechar, currentPosition);</span>
+
+<span class="nc bnc" id="L177" title="All 2 branches missed.">            if (nextSeparator == -1) {</span>
+<span class="nc" id="L178">                elements.add(nextLine.substring(currentPosition));</span>
+<span class="nc" id="L179">                currentPosition = nextLine.length();</span>
+<span class="nc bnc" id="L180" title="All 6 branches missed.">            } else if (nextQuote == -1 || nextQuote &gt; nextSeparator || nextQuote != currentPosition) {</span>
+<span class="nc" id="L181">                elements.add(nextLine.substring(currentPosition, nextSeparator));</span>
+<span class="nc" id="L182">                currentPosition = nextSeparator + 1;</span>
+            } else {
+<span class="nc" id="L184">                int fieldEnd = findEndOfFieldFromPosition(nextLine, currentPosition);</span>
+
+<span class="nc bnc" id="L186" title="All 2 branches missed.">                elements.add(fieldEnd &gt;= nextLine.length() ? nextLine.substring(currentPosition) : nextLine.substring(currentPosition, fieldEnd));</span>
+
+<span class="nc" id="L188">                currentPosition = fieldEnd + 1;</span>
+<span class="nc" id="L189">            }</span>
+
+        }
+
+<span class="nc bnc" id="L193" title="All 4 branches missed.">        if (multi &amp;&amp; lastElementStartedWithQuoteButDidNotEndInOne(elements)) {</span>
+<span class="nc" id="L194">            pending = elements.get(elements.size() - 1) + &quot;\n&quot;;</span>
+<span class="nc" id="L195">            elements.remove(elements.size() - 1);</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">        } else if (nextLine.lastIndexOf(separator) == nextLine.length() - 1) {</span>
+<span class="nc" id="L197">            elements.add(&quot;&quot;);</span>
+        }
+<span class="nc" id="L199">        return elements.toArray(new String[elements.size()]);</span>
+    }
+
+    private boolean lastElementStartedWithQuoteButDidNotEndInOne(List&lt;String&gt; elements) {
+<span class="nc" id="L203">        String lastElement = elements.get(elements.size() - 1);</span>
+<span class="nc bnc" id="L204" title="All 4 branches missed.">        return lastElement.startsWith(Character.toString(quotechar)) &amp;&amp; !lastElement.endsWith(Character.toString(quotechar));</span>
+    }
+
+    private int findEndOfFieldFromPosition(String nextLine, int currentPosition) {
+<span class="nc" id="L208">        int nextQuote = nextLine.indexOf(quotechar, currentPosition + 1);</span>
+
+<span class="nc" id="L210">        boolean inQuote = false;</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        while (haveNotFoundLastQuote(nextLine, nextQuote)) {</span>
+<span class="nc bnc" id="L212" title="All 4 branches missed.">            if (!inQuote &amp;&amp; nextLine.charAt(nextQuote + 1) == separator) {</span>
+<span class="nc" id="L213">                return nextQuote + 1;</span>
+            }
+
+            do {
+<span class="nc" id="L217">                nextQuote = nextLine.indexOf(quotechar, nextQuote + 1);</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">                inQuote = !inQuote;</span>
+<span class="nc bnc" id="L219" title="All 4 branches missed.">            } while (haveNotFoundLastQuote(nextLine, nextQuote) &amp;&amp; nextLine.charAt(nextQuote + 1) == quotechar);</span>
+        }
+
+<span class="nc" id="L222">        return nextLine.length();</span>
+    }
+
+    private boolean haveNotFoundLastQuote(String nextLine, int nextQuote) {
+<span class="nc bnc" id="L226" title="All 4 branches missed.">        return nextQuote != -1 &amp;&amp; nextQuote &lt; nextLine.length() - 1;</span>
+    }
+
+    private String handleQuotes(String element) {
+<span class="nc" id="L230">        String ret = element;</span>
+<span class="nc" id="L231">        String quoteCharString = Character.toString(getQuotechar());</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">        if (StringUtils.startsWith(ret, quoteCharString)) {</span>
+<span class="nc" id="L233">            ret = StringUtils.removeStart(ret, quoteCharString);</span>
+
+<span class="nc bnc" id="L235" title="All 2 branches missed.">            if (StringUtils.endsWith(ret, quoteCharString)) {</span>
+<span class="nc" id="L236">                ret = StringUtils.removeEnd(ret, quoteCharString);</span>
+            }
+        }
+<span class="nc" id="L239">        ret = StringUtils.replace(ret, quoteCharString + quoteCharString, quoteCharString);</span>
+<span class="nc bnc" id="L240" title="All 6 branches missed.">        if (ret.isEmpty() &amp;&amp; (nullFieldIndicator == CSVReaderNullFieldIndicator.BOTH || nullFieldIndicator == CSVReaderNullFieldIndicator.EMPTY_QUOTES)) {</span>
+<span class="nc" id="L241">            ret = null;</span>
+        }
+<span class="nc" id="L243">        return ret;</span>
+    }
+
+    @Override
+    public CSVReaderNullFieldIndicator nullFieldIndicator() {
+<span class="nc" id="L248">        return nullFieldIndicator;</span>
+    }
+    
+    @Override
+    public String getPendingText() {
+<span class="nc" id="L253">        return StringUtils.defaultString(pending);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.6.201602180812</span></div></body></html>

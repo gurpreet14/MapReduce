@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>CSVIterator.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gurpreetkaur_chabada_hw1</a> &gt; <a href="index.source.html" class="el_package">com.opencsv</a> &gt; <span class="el_source">CSVIterator.java</span></div><h1>CSVIterator.java</h1><pre class="source lang-java linenums">package com.opencsv;
+
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.Locale;
+import java.util.NoSuchElementException;
+import java.util.ResourceBundle;
+import org.apache.commons.lang3.ObjectUtils;
+
+/**
+ * Provides an Iterator over the data found in opencsv.
+ * &lt;p&gt;&lt;em&gt;Fair warning!&lt;/em&gt; This mechanism of getting at the data opencsv
+ * delivers has limitations when used with the opencsv annotations. Locales and
+ * custom converters are not supported. Further features may or may not work.&lt;/p&gt;
+ */
+public class CSVIterator implements Iterator&lt;String[]&gt; {
+   private final CSVReader reader;
+   private String[] nextLine;
+   
+   /** Locale for all translations. */
+<span class="nc" id="L21">   private Locale errorLocale = Locale.getDefault();</span>
+
+   /**
+    * @param reader Reader for the CSV data.
+    * @throws IOException If unable to read data from the reader.
+    */
+<span class="nc" id="L27">   public CSVIterator(CSVReader reader) throws IOException {</span>
+<span class="nc" id="L28">      this.reader = reader;</span>
+<span class="nc" id="L29">      nextLine = reader.readNext();</span>
+<span class="nc" id="L30">   }</span>
+   
+    /**
+     * Sets the locale for error messages.
+     * @param errorLocale Locale for error messages. If null, the default locale
+     *   is used.
+     * @since 4.0
+     */
+    public void setErrorLocale(Locale errorLocale) {
+<span class="nc" id="L39">        this.errorLocale = ObjectUtils.defaultIfNull(errorLocale, Locale.getDefault());</span>
+<span class="nc" id="L40">    }</span>
+    
+   /**
+    * Returns true if the iteration has more elements.
+    * In other words, returns true if {@link #next()} would return an element
+    * rather than throwing an exception.
+    *
+    * @return True if the CSVIterator has more elements.
+    */
+   @Override
+   public boolean hasNext() {
+<span class="nc bnc" id="L51" title="All 2 branches missed.">      return nextLine != null;</span>
+   }
+
+   /**
+    *
+    * Returns the next element in the iterator.
+    *
+    * @return The next element of the iterator.
+    */
+   @Override
+   public String[] next() {
+<span class="nc" id="L62">      String[] temp = nextLine;</span>
+      try {
+<span class="nc" id="L64">         nextLine = reader.readNext();</span>
+<span class="nc" id="L65">      } catch (IOException e) {</span>
+<span class="nc" id="L66">         throw new NoSuchElementException();</span>
+<span class="nc" id="L67">      }</span>
+<span class="nc" id="L68">      return temp;</span>
+   }
+
+   /**
+    * This method is not supported by opencsv and will throw an
+    * {@link java.lang.UnsupportedOperationException} if called.
+    */
+   @Override
+   public void remove() {
+<span class="nc" id="L77">      throw new UnsupportedOperationException(ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;read.only.iterator&quot;));</span>
+   }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.6.201602180812</span></div></body></html>

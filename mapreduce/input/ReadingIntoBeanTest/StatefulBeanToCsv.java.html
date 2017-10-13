@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>StatefulBeanToCsv.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gurpreetkaur_chabada_hw1</a> &gt; <a href="index.source.html" class="el_package">com.opencsv.bean</a> &gt; <span class="el_source">StatefulBeanToCsv.java</span></div><h1>StatefulBeanToCsv.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 2016 Andrew Rucker Jones.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.opencsv.bean;
+
+import com.opencsv.CSVWriter;
+import com.opencsv.bean.concurrent.AccumulateCsvResults;
+import com.opencsv.bean.concurrent.IntolerantThreadPoolExecutor;
+import com.opencsv.bean.concurrent.OrderedObject;
+import com.opencsv.bean.concurrent.ProcessCsvBean;
+import com.opencsv.exceptions.CsvDataTypeMismatchException;
+import com.opencsv.exceptions.CsvException;
+import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
+import com.opencsv.exceptions.CsvRuntimeException;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.ObjectUtils;
+
+/**
+ * This class writes beans out in CSV format to a {@link java.io.Writer},
+ * keeping state information and making an intelligent guess at the mapping
+ * strategy to be applied.
+ * 
+ * @param &lt;T&gt; Type of the bean to be written
+ * @author Andrew Rucker Jones
+ * @see opencsvUtils#determineMappingStrategy(java.lang.Class, java.util.Locale) 
+ * @since 3.9
+ */
+public class StatefulBeanToCsv&lt;T&gt; {
+    /** The beans being written are counted in the order they are written. */
+<span class="nc" id="L54">    private int lineNumber = 0;</span>
+    
+    private final char separator;
+    private final char quotechar;
+    private final char escapechar;
+    private final String lineEnd;
+<span class="nc" id="L60">    private boolean headerWritten = false;</span>
+    private MappingStrategy&lt;T&gt; mappingStrategy;
+    private final Writer writer;
+    private CSVWriter csvwriter;
+    private boolean throwExceptions;
+<span class="nc" id="L65">    private List&lt;CsvException&gt; capturedExceptions = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L66">    private boolean orderedResults = true;</span>
+<span class="nc" id="L67">    private IntolerantThreadPoolExecutor executor = null;</span>
+    private BlockingQueue&lt;OrderedObject&lt;String[]&gt;&gt; resultantLineQueue;
+    private BlockingQueue&lt;OrderedObject&lt;CsvException&gt;&gt; thrownExceptionsQueue;
+<span class="nc" id="L70">    private AccumulateCsvResults accumulateThread = null;</span>
+<span class="nc" id="L71">    private ConcurrentNavigableMap&lt;Long, String[]&gt; resultantBeansMap = null;</span>
+<span class="nc" id="L72">    private ConcurrentNavigableMap&lt;Long, CsvException&gt; thrownExceptionsMap = null;</span>
+<span class="nc" id="L73">    private Locale errorLocale = Locale.getDefault();</span>
+    
+    /** The nullary constructor should never be used. */
+<span class="nc" id="L76">    private StatefulBeanToCsv() {</span>
+<span class="nc" id="L77">        throw new IllegalStateException(String.format(</span>
+<span class="nc" id="L78">                ResourceBundle.getBundle(&quot;opencsv&quot;).getString(&quot;nullary.constructor.not.allowed&quot;),</span>
+<span class="nc" id="L79">                getClass().getName()));</span>
+    }
+    
+    /**
+     * The only constructor that should be used.
+     * 
+     * @param escapechar The escape character to use when writing a CSV file
+     * @param lineEnd The line ending to use when writing a CSV file
+     * @param mappingStrategy The mapping strategy to use when writing a CSV file
+     * @param quotechar The quote character to use when writing a CSV file
+     * @param separator The field separator to use when writing a CSV file
+     * @param throwExceptions Whether or not exceptions should be thrown while
+     *   writing the CSV file. If not, they are collected and can be retrieved
+     *   via {@link #getCapturedExceptions() }.
+     * @param writer A {@link java.io.Writer} for writing the beans as a CSV to
+     */
+    public StatefulBeanToCsv(char escapechar, String lineEnd,
+            MappingStrategy&lt;T&gt; mappingStrategy, char quotechar, char separator,
+<span class="nc" id="L97">            boolean throwExceptions, Writer writer) {</span>
+<span class="nc" id="L98">        this.escapechar = escapechar;</span>
+<span class="nc" id="L99">        this.lineEnd = lineEnd;</span>
+<span class="nc" id="L100">        this.mappingStrategy = mappingStrategy;</span>
+<span class="nc" id="L101">        this.quotechar = quotechar;</span>
+<span class="nc" id="L102">        this.separator = separator;</span>
+<span class="nc" id="L103">        this.throwExceptions = throwExceptions;</span>
+<span class="nc" id="L104">        this.writer = writer;</span>
+<span class="nc" id="L105">    }</span>
+    
+    /**
+     * Custodial tasks that must be performed before beans are written to a CSV
+     * destination for the first time.
+     * @param bean Any bean to be written. Used to determine the mapping
+     *   strategy automatically. The bean itself is not written to the output by
+     *   this method.
+     */
+    private void beforeFirstWrite(T bean) {
+        
+        // Determine mapping strategy
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        if(mappingStrategy == null) {</span>
+<span class="nc" id="L118">            mappingStrategy = opencsvUtils.&lt;T&gt;determineMappingStrategy(bean.getClass(), errorLocale);</span>
+        }
+        
+        // Build CSVWriter
+<span class="nc" id="L122">        csvwriter = new CSVWriter(writer, separator, quotechar, escapechar, lineEnd);</span>
+        
+        // Write the header
+<span class="nc" id="L125">        String[] header = mappingStrategy.generateHeader();</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        if(header.length &gt; 0) {</span>
+<span class="nc" id="L127">            csvwriter.writeNext(header);</span>
+        }
+<span class="nc" id="L129">        headerWritten = true;</span>
+<span class="nc" id="L130">    }</span>
+    
+    /**
+     * Writes a bean out to the {@link java.io.Writer} provided to the
+     * constructor.
+     * 
+     * @param bean A bean to be written to a CSV destination
+     * @throws CsvDataTypeMismatchException If a field of the bean is
+     *   annotated improperly or an unsupported data type is supposed to be
+     *   written
+     * @throws CsvRequiredFieldEmptyException If a field is marked as required,
+     *   but the source is null
+     */
+    public void write(T bean) throws CsvDataTypeMismatchException,
+            CsvRequiredFieldEmptyException {
+        
+        // Write header
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        if(bean != null) {</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">            if(!headerWritten) {</span>
+<span class="nc" id="L149">                beforeFirstWrite(bean);</span>
+            }
+            
+            // Process the bean
+<span class="nc" id="L153">            resultantLineQueue = new ArrayBlockingQueue&lt;&gt;(1);</span>
+<span class="nc" id="L154">            thrownExceptionsQueue = new ArrayBlockingQueue&lt;&gt;(1);</span>
+<span class="nc" id="L155">            ProcessCsvBean proc = new ProcessCsvBean(++lineNumber,</span>
+                    mappingStrategy, bean, resultantLineQueue,
+                    thrownExceptionsQueue, throwExceptions, errorLocale);
+            try {
+<span class="nc" id="L159">                proc.run();</span>
+            }
+<span class="nc" id="L161">            catch(RuntimeException re) {</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">                if(re.getCause() != null) {</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">                    if(re.getCause() instanceof CsvRuntimeException) {</span>
+                        // Can't currently happen, but who knows what might be
+                        // in the future? I'm certain we wouldn't want to wrap
+                        // these in another RuntimeException.
+<span class="nc" id="L167">                        CsvRuntimeException csve = (CsvRuntimeException) re.getCause();</span>
+<span class="nc" id="L168">                        throw csve;</span>
+                    }
+<span class="nc bnc" id="L170" title="All 2 branches missed.">                    if(re.getCause() instanceof CsvDataTypeMismatchException) {</span>
+<span class="nc" id="L171">                        CsvDataTypeMismatchException csve = (CsvDataTypeMismatchException) re.getCause();</span>
+<span class="nc" id="L172">                        throw csve;</span>
+                    }
+<span class="nc bnc" id="L174" title="All 2 branches missed.">                    if(re.getCause() instanceof CsvRequiredFieldEmptyException) {</span>
+<span class="nc" id="L175">                        CsvRequiredFieldEmptyException csve = (CsvRequiredFieldEmptyException) re.getCause();</span>
+<span class="nc" id="L176">                        throw csve;</span>
+                    }
+                }
+<span class="nc" id="L179">                throw re;</span>
+<span class="nc" id="L180">            }</span>
+            
+            // Write out the result
+<span class="nc bnc" id="L183" title="All 2 branches missed.">            if(!thrownExceptionsQueue.isEmpty()) {</span>
+<span class="nc" id="L184">                OrderedObject&lt;CsvException&gt; o = thrownExceptionsQueue.poll();</span>
+<span class="nc bnc" id="L185" title="All 4 branches missed.">                if(o != null &amp;&amp; o.getElement() != null) {</span>
+<span class="nc" id="L186">                    capturedExceptions.add(o.getElement());</span>
+                }
+<span class="nc" id="L188">            }</span>
+            else {
+                // No exception, so there really must always be a string
+<span class="nc" id="L191">                OrderedObject&lt;String[]&gt; result = resultantLineQueue.poll();</span>
+<span class="nc bnc" id="L192" title="All 4 branches missed.">                if(result != null &amp;&amp; result.getElement() != null) {</span>
+<span class="nc" id="L193">                    csvwriter.writeNext(result.getElement());</span>
+                }
+            }
+        }
+<span class="nc" id="L197">    }</span>
+    
+    /**
+     * Prepare for parallel processing.
+     * &lt;p&gt;The structure is:
+     * &lt;ol&gt;&lt;li&gt;The main thread parses input and passes it on to&lt;/li&gt;
+     * &lt;li&gt;The executor, which creates a number of beans in parallel and passes
+     * these and any resultant errors to&lt;/li&gt;
+     * &lt;li&gt;The accumulator, which creates an ordered list of the results.&lt;/li&gt;&lt;/ol&gt;&lt;/p&gt;
+     * &lt;p&gt;The threads in the executor queue their results in a thread-safe
+     * queue, which should be O(1), minimizing wait time due to synchronization.
+     * The accumulator then removes items from the queue and inserts them into a
+     * sorted data structure, which is O(log n) on average and O(n) in the worst
+     * case. If the user has told us she doesn't need sorted data, the
+     * accumulator is not necessary, and thus is not started.&lt;/p&gt;
+     */
+    private void prepareForParallelProcessing() {
+<span class="nc" id="L214">        executor = new IntolerantThreadPoolExecutor();</span>
+<span class="nc" id="L215">        executor.prestartAllCoreThreads();</span>
+<span class="nc" id="L216">        resultantLineQueue = new LinkedBlockingQueue&lt;&gt;();</span>
+<span class="nc" id="L217">        thrownExceptionsQueue = new LinkedBlockingQueue&lt;&gt;();</span>
+
+        // The ordered maps and accumulator are only necessary if ordering is
+        // stipulated. After this, the presence or absence of the accumulator is
+        // used to indicate ordering or not so as to guard against the unlikely
+        // problem that someone sets orderedResults right in the middle of
+        // processing.
+<span class="nc bnc" id="L224" title="All 2 branches missed.">        if(orderedResults) {</span>
+<span class="nc" id="L225">            resultantBeansMap = new ConcurrentSkipListMap&lt;&gt;();</span>
+<span class="nc" id="L226">            thrownExceptionsMap = new ConcurrentSkipListMap&lt;&gt;();</span>
+
+            // Start the process for accumulating results and cleaning up
+<span class="nc" id="L229">            accumulateThread = new AccumulateCsvResults&lt;&gt;(</span>
+                    resultantLineQueue, thrownExceptionsQueue, resultantBeansMap,
+                    thrownExceptionsMap);
+<span class="nc" id="L232">            accumulateThread.start();</span>
+        }
+<span class="nc" id="L234">    }</span>
+    
+    private void submitAllLines(List&lt;T&gt; beans) throws InterruptedException {
+<span class="nc bnc" id="L237" title="All 2 branches missed.">        for(T bean : beans) {</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">            if(bean != null) {</span>
+<span class="nc" id="L239">                executor.execute(new ProcessCsvBean(</span>
+                        ++lineNumber, mappingStrategy, bean,
+                        resultantLineQueue, thrownExceptionsQueue,
+                        throwExceptions, errorLocale));
+            }
+<span class="nc" id="L244">        }</span>
+
+        // Normal termination
+<span class="nc" id="L247">        executor.shutdown();</span>
+<span class="nc" id="L248">        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS); // Wait indefinitely</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">        if(accumulateThread != null) {</span>
+<span class="nc" id="L250">            accumulateThread.setMustStop(true);</span>
+<span class="nc" id="L251">            accumulateThread.join();</span>
+        }
+
+        // There's one more possibility: The very last bean caused a problem.
+<span class="nc bnc" id="L255" title="All 2 branches missed.">        if(executor.getTerminalException() != null) {</span>
+            // Trigger first catch clause
+<span class="nc" id="L257">            throw new RejectedExecutionException();</span>
+        }
+<span class="nc" id="L259">    }</span>
+    
+    private void writeResultsOfParallelProcessingToFile() {
+        // Prepare results. Checking for these maps to be != null makes the
+        // compiler feel better than checking that the accumulator is not null.
+<span class="nc bnc" id="L264" title="All 4 branches missed.">        if(thrownExceptionsMap != null &amp;&amp; resultantBeansMap != null) {</span>
+<span class="nc" id="L265">            capturedExceptions = new ArrayList&lt;&gt;(thrownExceptionsMap.values());</span>
+<span class="nc bnc" id="L266" title="All 2 branches missed.">            for(String[] oneLine : resultantBeansMap.values()) {</span>
+<span class="nc" id="L267">                csvwriter.writeNext(oneLine);</span>
+<span class="nc" id="L268">            }</span>
+        }
+        else {
+<span class="nc" id="L271">            capturedExceptions = new ArrayList&lt;&gt;(thrownExceptionsQueue.size());</span>
+            OrderedObject&lt;CsvException&gt; oocsve;
+<span class="nc bnc" id="L273" title="All 2 branches missed.">            while(!thrownExceptionsQueue.isEmpty()) {</span>
+<span class="nc" id="L274">                oocsve = thrownExceptionsQueue.poll();</span>
+<span class="nc bnc" id="L275" title="All 4 branches missed.">                if(oocsve != null &amp;&amp; oocsve.getElement() != null) {</span>
+<span class="nc" id="L276">                    capturedExceptions.add(oocsve.getElement());</span>
+                }
+            }
+            OrderedObject&lt;String[]&gt; ooresult;
+<span class="nc bnc" id="L280" title="All 2 branches missed.">            while(!resultantLineQueue.isEmpty()) {</span>
+                try {
+<span class="nc" id="L282">                    ooresult = resultantLineQueue.take();</span>
+<span class="nc" id="L283">                    csvwriter.writeNext(ooresult.getElement());</span>
+                }
+<span class="nc" id="L285">                catch(InterruptedException e) {/* We'll get it during the next loop through. */}</span>
+            }
+        }
+<span class="nc" id="L288">    }</span>
+    
+    /**
+     * Writes a list of beans out to the {@link java.io.Writer} provided to the
+     * constructor.
+     * 
+     * @param beans A list of beans to be written to a CSV destination
+     * @throws CsvDataTypeMismatchException If a field of the beans is
+     *   annotated improperly or an unsupported data type is supposed to be
+     *   written
+     * @throws CsvRequiredFieldEmptyException If a field is marked as required,
+     *   but the source is null
+     */
+    public void write(List&lt;T&gt; beans) throws CsvDataTypeMismatchException,
+            CsvRequiredFieldEmptyException {
+<span class="nc bnc" id="L303" title="All 2 branches missed.">        if(CollectionUtils.isNotEmpty(beans)) {</span>
+            // Write header
+<span class="nc bnc" id="L305" title="All 2 branches missed.">            if(!headerWritten) {</span>
+<span class="nc" id="L306">                beforeFirstWrite(beans.get(0));</span>
+            }
+            
+<span class="nc" id="L309">            prepareForParallelProcessing();</span>
+
+            // Process the beans
+            try {
+<span class="nc" id="L313">                submitAllLines(beans);</span>
+            }
+<span class="nc" id="L315">            catch(RejectedExecutionException e) {</span>
+                // An exception in one of the bean writing threads prompted the
+                // executor service to shutdown before we were done.
+<span class="nc bnc" id="L318" title="All 2 branches missed.">                if(accumulateThread != null) {</span>
+<span class="nc" id="L319">                    accumulateThread.setMustStop(true);</span>
+                }
+<span class="nc bnc" id="L321" title="All 2 branches missed.">                if(executor.getTerminalException() instanceof RuntimeException) {</span>
+<span class="nc" id="L322">                    RuntimeException re = (RuntimeException) executor.getTerminalException();</span>
+<span class="nc" id="L323">                    throw re;</span>
+                }
+<span class="nc bnc" id="L325" title="All 2 branches missed.">                if(executor.getTerminalException() instanceof CsvDataTypeMismatchException) {</span>
+<span class="nc" id="L326">                    CsvDataTypeMismatchException csve = (CsvDataTypeMismatchException) executor.getTerminalException();</span>
+<span class="nc" id="L327">                    throw csve;</span>
+                }
+<span class="nc bnc" id="L329" title="All 2 branches missed.">                if(executor.getTerminalException() instanceof CsvRequiredFieldEmptyException) {</span>
+<span class="nc" id="L330">                    CsvRequiredFieldEmptyException csve = (CsvRequiredFieldEmptyException) executor.getTerminalException();</span>
+<span class="nc" id="L331">                    throw csve;</span>
+                }
+<span class="nc" id="L333">                throw new RuntimeException(</span>
+<span class="nc" id="L334">                        ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;error.writing.beans&quot;), executor.getTerminalException());</span>
+<span class="nc" id="L335">            } catch (Exception e) {</span>
+                // Exception during parsing. Always unrecoverable.
+                // I can't find a way to create this condition in the current
+                // code, but we must have a catch-all clause.
+<span class="nc" id="L339">                executor.shutdownNow();</span>
+<span class="nc bnc" id="L340" title="All 2 branches missed.">                if(accumulateThread != null) {</span>
+<span class="nc" id="L341">                    accumulateThread.setMustStop(true);</span>
+                }
+<span class="nc bnc" id="L343" title="All 2 branches missed.">                if(executor.getTerminalException() instanceof RuntimeException) {</span>
+<span class="nc" id="L344">                    RuntimeException re = (RuntimeException) executor.getTerminalException();</span>
+<span class="nc" id="L345">                    throw re;</span>
+                }
+<span class="nc" id="L347">                throw new RuntimeException(ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;error.writing.beans&quot;), e);</span>
+<span class="nc" id="L348">            }</span>
+
+<span class="nc" id="L350">            writeResultsOfParallelProcessingToFile();</span>
+        }
+<span class="nc" id="L352">    }</span>
+    
+    /**
+     * Sets whether or not results must be written in the same order in which
+     * they appear in the list of beans provided as input.
+     * The default is that order is preserved. If your data do not need to be
+     * ordered, you can get a slight performance boost by setting
+     * {@code orderedResults} to {@code false}. The lack of ordering then also
+     * applies to any captured exceptions, if you have chosen not to have
+     * exceptions thrown.
+     * @param orderedResults Whether or not the lines written are in the same
+     *   order they appeared in the input
+     * @since 4.0
+     */
+    public void setOrderedResults(boolean orderedResults) {
+<span class="nc" id="L367">        this.orderedResults = orderedResults;</span>
+<span class="nc" id="L368">    }</span>
+
+    /**
+     * @return Whether or not exceptions are thrown. If they are not thrown,
+     *   they are captured and returned later via {@link #getCapturedExceptions()}.
+     */
+    public boolean isThrowExceptions() {
+<span class="nc" id="L375">        return throwExceptions;</span>
+    }
+
+    /**
+     * Any exceptions captured during writing of beans to a CSV destination can
+     * be retrieved through this method.
+     * &lt;p&gt;&lt;em&gt;Reads from the list are destructive!&lt;/em&gt; Calling this method will
+     * clear the list of captured exceptions. However, calling
+     * {@link #write(java.util.List)} or {@link #write(java.lang.Object)}
+     * multiple times with no intervening call to this method will not clear the
+     * list of captured exceptions, but rather add to it if further exceptions
+     * are thrown.&lt;/p&gt;
+     * @return A list of exceptions that would have been thrown during any and
+     *   all read operations since the last call to this method
+     */
+    public List&lt;CsvException&gt; getCapturedExceptions() {
+<span class="nc" id="L391">        List&lt;CsvException&gt; intermediate = capturedExceptions;</span>
+<span class="nc" id="L392">        capturedExceptions = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L393">        return intermediate;</span>
+    }
+    
+    /**
+     * Sets the locale for all error messages.
+     * @param errorLocale Locale for error messages. If null, the default locale
+     *   is used.
+     * @since 4.0
+     */
+    public void setErrorLocale(Locale errorLocale) {
+<span class="nc" id="L403">        this.errorLocale = ObjectUtils.defaultIfNull(errorLocale, Locale.getDefault());</span>
+<span class="nc" id="L404">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.6.201602180812</span></div></body></html>

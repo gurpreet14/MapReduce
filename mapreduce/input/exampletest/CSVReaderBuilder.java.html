@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>CSVReaderBuilder.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gurpreetkaur_chabada_hw1</a> &gt; <a href="index.source.html" class="el_package">com.opencsv</a> &gt; <span class="el_source">CSVReaderBuilder.java</span></div><h1>CSVReaderBuilder.java</h1><pre class="source lang-java linenums">/*
+ Copyright 2005 Bytecode Pty Ltd.
+
+ Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ */
+package com.opencsv;
+
+
+import com.opencsv.enums.CSVReaderNullFieldIndicator;
+
+import java.io.Reader;
+import java.util.Locale;
+import java.util.ResourceBundle;
+import org.apache.commons.lang3.ObjectUtils;
+
+/**
+ * Builder for creating a CSVReader.
+ * &lt;p&gt;This should be the preferred method of creating a Reader as there are so many
+ * possible values to be set it is impossible to have constructors for all of
+ * them and keep backwards compatibility with previous constructors.&lt;br&gt;
+ *
+ * &lt;code&gt;
+ * final CSVParser parser =&lt;br&gt;
+ * new CSVParserBuilder()&lt;br&gt;
+ * .withSeparator('\t')&lt;br&gt;
+ * .withIgnoreQuotations(true)&lt;br&gt;
+ * .build();&lt;br&gt;
+ * final CSVReader reader =&lt;br&gt;
+ * new CSVReaderBuilder(new StringReader(csv))&lt;br&gt;
+ * .withSkipLines(1)&lt;br&gt;
+ * .withCSVParser(parser)&lt;br&gt;
+ * .build();&lt;br&gt;
+ * &lt;/code&gt;&lt;/p&gt;
+ *
+ * @see com.opencsv.CSVReader
+ */
+public class CSVReaderBuilder {
+
+<span class="nc" id="L49">    private final CSVParserBuilder parserBuilder = new CSVParserBuilder();</span>
+    private final Reader reader;
+<span class="nc" id="L51">    private int skipLines = CSVReader.DEFAULT_SKIP_LINES;</span>
+<span class="nc" id="L52">    private ICSVParser icsvParser = null;</span>
+    private boolean keepCR;
+<span class="nc" id="L54">    private boolean verifyReader = CSVReader.DEFAULT_VERIFY_READER;</span>
+<span class="nc" id="L55">    private CSVReaderNullFieldIndicator nullFieldIndicator = CSVReaderNullFieldIndicator.NEITHER;</span>
+<span class="nc" id="L56">    private int multilineLimit = CSVReader.DEFAULT_MULTILINE_LIMIT;</span>
+<span class="nc" id="L57">    private Locale errorLocale = Locale.getDefault();</span>
+
+   /**
+    * Sets the reader to an underlying CSV source.
+    *
+    * @param reader The reader to an underlying CSV source.
+    */
+   public CSVReaderBuilder(
+<span class="nc" id="L65">         final Reader reader) {</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">      if (reader == null) {</span>
+<span class="nc" id="L67">         throw new IllegalArgumentException(ResourceBundle.getBundle(&quot;opencsv&quot;).getString(&quot;reader.null&quot;));</span>
+      }
+<span class="nc" id="L69">      this.reader = reader;</span>
+<span class="nc" id="L70">   }</span>
+
+    /**
+     * Used by unit tests.
+     *
+     * @return The reader.
+     */
+    protected Reader getReader() {
+<span class="nc" id="L78">        return reader;</span>
+    }
+
+    /**
+     * Used by unit tests.
+     *
+     * @return The set number of lines to skip
+     */
+    protected int getSkipLines() {
+<span class="nc" id="L87">        return skipLines;</span>
+    }
+
+    /**
+     * Used by unit tests.
+     *
+     * @return The CSVParser used by the builder.
+     */
+    protected ICSVParser getCsvParser() {
+<span class="nc" id="L96">        return icsvParser;</span>
+    }
+    
+    /**
+     * Used by unit tests.
+     *
+     * @return The upper limit on lines in multiline records.
+     */
+    protected int getMultilineLimit() {
+<span class="nc" id="L105">        return multilineLimit;</span>
+    }
+
+    /**
+     * Sets the number of lines to skip before reading.
+     *
+     * @param skipLines The number of lines to skip before reading.
+     * @return The CSVReaderBuilder with skipLines set.
+    */
+    public CSVReaderBuilder withSkipLines(
+         final int skipLines) {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        this.skipLines = skipLines &lt;= 0 ? 0 : skipLines;</span>
+<span class="nc" id="L117">      return this;</span>
+   }
+
+
+    /**
+     * Sets the parser to use to parse the input.
+     *
+     * @param icsvParser The parser to use to parse the input.
+     * @return The CSVReaderBuilder with the CSVParser set.
+    */
+    public CSVReaderBuilder withCSVParser(
+            final ICSVParser icsvParser) {
+<span class="nc" id="L129">        this.icsvParser = icsvParser;</span>
+<span class="nc" id="L130">       return this;</span>
+   }
+
+
+    /**
+     * Creates the CSVReader.
+     * @return The CSVReader based on the set criteria.
+     */
+    public CSVReader build() {
+<span class="nc" id="L139">        final ICSVParser parser = ObjectUtils.defaultIfNull(icsvParser,</span>
+                parserBuilder
+<span class="nc" id="L141">                        .withFieldAsNull(nullFieldIndicator)</span>
+<span class="nc" id="L142">                        .withErrorLocale(errorLocale)</span>
+<span class="nc" id="L143">                        .build());</span>
+<span class="nc" id="L144">        return new CSVReader(reader, skipLines, parser, keepCR, verifyReader, multilineLimit, errorLocale);</span>
+   }
+
+    /**
+     * Sets if the reader will keep or discard carriage returns.
+     *
+     * @param keepCR True to keep carriage returns, false to discard.
+     * @return The CSVReaderBuilder based on the set criteria.
+     */
+    public CSVReaderBuilder withKeepCarriageReturn(boolean keepCR) {
+<span class="nc" id="L154">        this.keepCR = keepCR;</span>
+<span class="nc" id="L155">        return this;</span>
+    }
+
+    /**
+     * Returns if the reader built will keep or discard carriage returns.
+     *
+     * @return True if the reader built will keep carriage returns, false otherwise.
+     */
+    protected boolean keepCarriageReturn() {
+<span class="nc" id="L164">        return this.keepCR;</span>
+    }
+
+    /**
+     * Checks to see if the CSVReader should verify the reader state before
+     * reads or not.
+     *
+     * &lt;p&gt;This should be set to false if you are using some form of asynchronous
+     * reader (like readers created by the java.nio.* classes).&lt;/p&gt;
+     *
+     * &lt;p&gt;The default value is true.&lt;/p&gt;
+     *
+     * @param verifyReader True if CSVReader should verify reader before each read, false otherwise.
+     * @return The CSVReaderBuilder based on this criteria.
+     */
+    public CSVReaderBuilder withVerifyReader(boolean verifyReader) {
+<span class="nc" id="L180">        this.verifyReader = verifyReader;</span>
+<span class="nc" id="L181">        return this;</span>
+    }
+
+    /**
+     * Checks to see if it should treat a field with two separators, two quotes, or both as a null field.
+     *
+     * @param indicator CSVReaderNullFieldIndicator set to what should be considered a null field.
+     * @return The CSVReaderBuilder based on this criteria.
+     */
+    public CSVReaderBuilder withFieldAsNull(CSVReaderNullFieldIndicator indicator) {
+<span class="nc" id="L191">        this.nullFieldIndicator = indicator;</span>
+<span class="nc" id="L192">        return this;</span>
+    }
+
+    /**
+     * Sets the maximum number of lines allowed in a multiline record.
+     * More than this number in one record results in an IOException.
+     * 
+     * @param multilineLimit No more than this number of lines is allowed in a
+     *   single input record. The default is {@link CSVReader#DEFAULT_MULTILINE_LIMIT}.
+     * @return The CSVReaderBuilder based on this criteria.
+     * @see CSVReader#setMultilineLimit(int)
+     */
+    public CSVReaderBuilder withMultilineLimit(int multilineLimit) {
+<span class="nc" id="L205">        this.multilineLimit = multilineLimit;</span>
+<span class="nc" id="L206">        return this;</span>
+    }
+    
+    /**
+     * Sets the locale for all error messages.
+     * 
+     * @param errorLocale Locale for error messages
+     * @return this
+     * @since 4.0
+     */
+    public CSVReaderBuilder withErrorLocale(Locale errorLocale) {
+<span class="nc" id="L217">        this.errorLocale = ObjectUtils.defaultIfNull(errorLocale, Locale.getDefault());</span>
+<span class="nc" id="L218">        return this;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.6.201602180812</span></div></body></html>

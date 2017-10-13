@@ -1,0 +1,452 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>HeaderColumnNameMappingStrategy.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gurpreetkaur_chabada_hw1</a> &gt; <a href="index.source.html" class="el_package">com.opencsv.bean</a> &gt; <span class="el_source">HeaderColumnNameMappingStrategy.java</span></div><h1>HeaderColumnNameMappingStrategy.java</h1><pre class="source lang-java linenums">package com.opencsv.bean;
+
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvBadConverterException;
+import com.opencsv.exceptions.CsvBeanIntrospectionException;
+import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.reflect.FieldUtils;
+import java.beans.BeanInfo;
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.util.*;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.text.StrBuilder;
+
+/*
+ * Copyright 2007 Kyle Miller.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * Maps data to objects using the column names in the first row of the CSV file
+ * as reference. This way the column order does not matter.
+ *
+ * @param &lt;T&gt; Type of the bean to be returned
+ */
+public class HeaderColumnNameMappingStrategy&lt;T&gt; implements MappingStrategy&lt;T&gt; {
+
+    // TODO: header and indexLookup should be replaced with a BidiMap from Apache
+    // Commons Collections once Apache Commons BeanUtils supports Collections
+    // version 4.0 or newer. Until then I don't like BidiMaps, because they
+    // aren't done with Generics, meaning everything is an Object and there is
+    // no type safety.
+    /**
+     * An ordered array of the headers for the columns of a CSV input.
+     * When reading, this array is automatically populated from the input source.
+     * When writing, it is guessed from annotations, or, lacking any annotations,
+     * from the names of the variables in the bean to be written.
+     */
+    protected String[] header;
+    
+    /** This map makes finding the column index of a header name easy. */
+<span class="fc" id="L58">    protected Map&lt;String, Integer&gt; indexLookup = new HashMap&lt;&gt;();</span>
+    
+    /**
+     * Given a header name, this map allows one to find the corresponding
+     * property descriptor.
+     */
+<span class="fc" id="L64">    protected Map&lt;String, PropertyDescriptor&gt; descriptorMap = null;</span>
+    
+    /**
+     * Given a header name, this map allows one to find the corresponding
+     * {@link BeanField}.
+     */
+<span class="fc" id="L70">    protected Map&lt;String, BeanField&gt; fieldMap = null;</span>
+    
+    /** This is the class of the bean to be manipulated. */
+    protected Class&lt;? extends T&gt; type;
+    
+    /**
+     * Whether or not annotations were found and should be used for determining
+     * the binding between columns in a CSV source or destination and fields in
+     * a bean.
+     */
+    protected boolean annotationDriven;
+    
+    /** Locale for error messages. */
+<span class="fc" id="L83">    protected Locale errorLocale = Locale.getDefault();</span>
+    
+    /**
+     * Default constructor.
+     */
+<span class="fc" id="L88">    public HeaderColumnNameMappingStrategy() {</span>
+<span class="fc" id="L89">    }</span>
+    
+    @Override
+    public void captureHeader(CSVReader reader) throws IOException, CsvRequiredFieldEmptyException {
+        // Validation
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">        if(type == null) {</span>
+<span class="nc" id="L95">            throw new IllegalStateException(ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;type.unset&quot;));</span>
+        }
+        
+        // Read the header
+<span class="fc" id="L99">        header = ObjectUtils.defaultIfNull(reader.readNext(), ArrayUtils.EMPTY_STRING_ARRAY);</span>
+
+        // Create a list for the Required fields keys.
+<span class="fc" id="L102">        List&lt;String&gt; requiredKeys = new ArrayList&lt;&gt;();</span>
+
+<span class="fc bfc" id="L104" title="All 2 branches covered.">        for(Map.Entry&lt;String, BeanField&gt; entrySet : fieldMap.entrySet()) {</span>
+<span class="fc" id="L105">            BeanField beanField = entrySet.getValue();</span>
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">            if (beanField.isRequired()) {</span>
+<span class="nc" id="L107">                requiredKeys.add(entrySet.getKey().toUpperCase());</span>
+            }
+<span class="fc" id="L109">        }</span>
+
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">        if (requiredKeys.isEmpty()) {</span>
+<span class="fc" id="L112">            return;</span>
+        }
+
+        // Remove fields that are in the header
+<span class="nc bnc" id="L116" title="All 4 branches missed.">        for (int i = 0; i &lt; header.length &amp;&amp; !requiredKeys.isEmpty(); i++) {</span>
+<span class="nc" id="L117">            requiredKeys.remove(header[i].toUpperCase());</span>
+        }
+
+        // Throw an exception if anything is left
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (!requiredKeys.isEmpty()) {</span>
+<span class="nc" id="L122">            StrBuilder builder = new StrBuilder(128);</span>
+<span class="nc" id="L123">            String missingRequiredFields = builder.appendWithSeparators(requiredKeys, &quot;,&quot;).toString();</span>
+            // TODO consider CsvRequiredFieldsEmpty for multiple missing required fields.
+<span class="nc" id="L125">            throw new CsvRequiredFieldEmptyException(type, fieldMap.get(requiredKeys.get(0)).getField(),</span>
+<span class="nc" id="L126">                    String.format(ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;header.required.field.absent&quot;),</span>
+                            missingRequiredFields));
+        }
+<span class="nc" id="L129">    }</span>
+    
+    @Override
+    public void verifyLineLength(int numberOfFields) throws CsvRequiredFieldEmptyException {
+<span class="pc bpc" id="L133" title="1 of 2 branches missed.">        if(header != null) {</span>
+            BeanField f;
+<span class="fc" id="L135">            StringBuilder sb = null;</span>
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">            for(int i = numberOfFields; i &lt; header.length; i++) {</span>
+<span class="nc" id="L137">                f = findField(i);</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">                if(f.isRequired()) {</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">                    if(sb == null) {</span>
+<span class="nc" id="L140">                        sb = new StringBuilder(ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;multiple.required.field.empty&quot;));</span>
+                    }
+<span class="nc" id="L142">                    sb.append(' ');</span>
+<span class="nc" id="L143">                    sb.append(f.getField().getName());</span>
+                }
+            }
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">            if(sb != null) {</span>
+<span class="nc" id="L147">                throw new CsvRequiredFieldEmptyException(type, sb.toString());</span>
+            }
+        }
+<span class="fc" id="L150">    }</span>
+    
+    /**
+     * This method generates a header that can be used for writing beans of the
+     * type provided back to a file.
+     * The ordering of the headers is alphabetically ascending.
+     * @return An array of header names for the output file, or an empty array
+     *   if no header should be written
+     */
+    @Override
+    public String[] generateHeader() {
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        if(type == null) {</span>
+<span class="nc" id="L162">            throw new IllegalStateException(ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;type.before.header&quot;));</span>
+        }
+        
+        // Always take what's been given or previously determined first.
+<span class="nc bnc" id="L166" title="All 2 branches missed.">        if(header == null) {</span>
+
+            // To make testing simpler and because not all receivers are
+            // guaranteed to be as flexible with column order as opencsv,
+            // make the column ordering deterministic by sorting the column
+            // headers alphabetically.
+<span class="nc" id="L172">            SortedSet&lt;String&gt; set = new TreeSet(fieldMap.keySet());</span>
+<span class="nc" id="L173">            header = set.toArray(new String[fieldMap.size()]);</span>
+        }
+        
+        // Clone so no one has direct access to internal data structures
+<span class="nc" id="L177">        return ArrayUtils.clone(header);</span>
+    }
+
+    /**
+     * Creates an index map of column names to column position.
+     *
+     * @param values Array of header values.
+     */
+    protected void createIndexLookup(String[] values) {
+<span class="nc bnc" id="L186" title="All 2 branches missed.">        if (indexLookup.isEmpty()) {</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">            for (int i = 0; i &lt; values.length; i++) {</span>
+<span class="nc" id="L188">                indexLookup.put(values[i], i);</span>
+            }
+        }
+<span class="nc" id="L191">    }</span>
+
+    /**
+     * Resets index map of column names to column position.
+     */
+    protected void resetIndexMap() {
+<span class="nc" id="L197">        indexLookup.clear();</span>
+<span class="nc" id="L198">    }</span>
+
+    @Override
+    public Integer getColumnIndex(String name) {
+<span class="nc bnc" id="L202" title="All 2 branches missed.">        if (null == header) {</span>
+<span class="nc" id="L203">            throw new IllegalStateException(ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;header.unread&quot;));</span>
+        }
+
+<span class="nc" id="L206">        createIndexLookup(header);</span>
+
+<span class="nc" id="L208">        return indexLookup.get(name);</span>
+    }
+
+    @Override
+    @Deprecated
+    public PropertyDescriptor findDescriptor(int col) {
+<span class="nc" id="L214">        String columnName = getColumnName(col);</span>
+<span class="nc" id="L215">        BeanField beanField = null;</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">        if(StringUtils.isNotBlank(columnName)) {</span>
+<span class="nc" id="L217">            beanField = fieldMap.get(columnName.toUpperCase().trim());</span>
+        }
+<span class="nc bnc" id="L219" title="All 2 branches missed.">        if(beanField != null) {</span>
+<span class="nc" id="L220">            return findDescriptor(beanField.getField().getName());</span>
+        }
+<span class="nc bnc" id="L222" title="All 2 branches missed.">        if(StringUtils.isNotBlank(columnName)) {</span>
+<span class="nc" id="L223">            return findDescriptor(columnName);</span>
+        }
+<span class="nc" id="L225">        return null;</span>
+    }
+
+    @Override
+    public BeanField findField(int col) throws CsvBadConverterException {
+<span class="fc" id="L230">        BeanField beanField = null;</span>
+<span class="fc" id="L231">        String columnName = getColumnName(col);</span>
+<span class="pc bpc" id="L232" title="1 of 2 branches missed.">        if(StringUtils.isNotBlank(columnName)) {</span>
+<span class="fc" id="L233">            beanField = fieldMap.get(columnName.toUpperCase().trim());</span>
+        }
+<span class="fc" id="L235">        return beanField;</span>
+    }
+    
+    @Override
+    public int findMaxFieldIndex() {
+<span class="nc bnc" id="L240" title="All 2 branches missed.">        return header == null ? -1 : header.length-1;</span>
+    }
+
+    /**
+     * Get the column name for a given column position.
+     *
+     * @param col Column position.
+     * @return The column name or null if the position is larger than the
+     * header array or there are no headers defined.
+     */
+    public String getColumnName(int col) {
+<span class="pc bpc" id="L251" title="2 of 4 branches missed.">        return (null != header &amp;&amp; col &lt; header.length) ? header[col] : null;</span>
+    }
+
+    /**
+     * Find the property descriptor for a given column.
+     *
+     * @param name Column name to look up.
+     * @return The property descriptor for the column.
+     * @deprecated Introspection will be replaced with reflection in version 5.0
+     */
+    @Deprecated
+    protected PropertyDescriptor findDescriptor(String name) {
+<span class="nc" id="L263">        return descriptorMap.get(name.toUpperCase().trim());</span>
+    }
+
+    /**
+     * Builds a map of property descriptors for the bean.
+     *
+     * @return Map of property descriptors
+     * @throws IntrospectionException Thrown on error getting information
+     *                                about the bean.
+     * @deprecated Introspection will be replaced with reflection in version 5.0
+     */
+    @Deprecated
+    protected Map&lt;String, PropertyDescriptor&gt; loadDescriptorMap() throws IntrospectionException {
+<span class="fc" id="L276">        Map&lt;String, PropertyDescriptor&gt; map = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L278">        PropertyDescriptor[] descriptors = loadDescriptors(getType());</span>
+<span class="fc bfc" id="L279" title="All 2 branches covered.">        for (PropertyDescriptor descriptor : descriptors) {</span>
+<span class="fc" id="L280">            map.put(descriptor.getName().toUpperCase(), descriptor);</span>
+        }
+
+<span class="fc" id="L283">        return map;</span>
+    }
+
+    /**
+     * Attempts to instantiate the class of the custom converter specified.
+     *
+     * @param converter The class for a custom converter
+     * @return The custom converter
+     * @throws CsvBadConverterException If the class cannot be instantiated
+     */
+    protected BeanField instantiateCustomConverter(Class&lt;? extends AbstractBeanField&gt; converter)
+            throws CsvBadConverterException {
+        try {
+<span class="nc" id="L296">            BeanField c = converter.newInstance();</span>
+<span class="nc" id="L297">            c.setErrorLocale(errorLocale);</span>
+<span class="nc" id="L298">            return c;</span>
+<span class="nc" id="L299">        } catch (IllegalAccessException | InstantiationException oldEx) {</span>
+<span class="nc" id="L300">            CsvBadConverterException newEx =</span>
+                    new CsvBadConverterException(converter,
+<span class="nc" id="L302">                            String.format(ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;custom.converter.invalid&quot;), converter.getCanonicalName()));</span>
+<span class="nc" id="L303">            newEx.initCause(oldEx);</span>
+<span class="nc" id="L304">            throw newEx;</span>
+        }
+    }
+
+    /**
+     * Builds a map of fields for the bean.
+     *
+     * @throws CsvBadConverterException If there is a problem instantiating the
+     *                                  custom converter for an annotated field
+     */
+    protected void loadFieldMap() throws CsvBadConverterException {
+        boolean required;
+<span class="fc" id="L316">        fieldMap = new HashMap&lt;&gt;();</span>
+
+<span class="fc bfc" id="L318" title="All 2 branches covered.">        for (Field field : loadFields(getType())) {</span>
+            String columnName;
+            String locale;
+
+            // Always check for a custom converter first.
+<span class="pc bpc" id="L323" title="1 of 2 branches missed.">            if (field.isAnnotationPresent(CsvCustomBindByName.class)) {</span>
+<span class="nc" id="L324">                CsvCustomBindByName annotation = field.getAnnotation(CsvCustomBindByName.class);</span>
+<span class="nc" id="L325">                columnName = annotation.column().toUpperCase().trim();</span>
+<span class="nc bnc" id="L326" title="All 2 branches missed.">                if(StringUtils.isEmpty(columnName)) {</span>
+<span class="nc" id="L327">                    columnName = field.getName().toUpperCase();</span>
+                }
+<span class="nc" id="L329">                Class&lt;? extends AbstractBeanField&gt; converter = field</span>
+<span class="nc" id="L330">                        .getAnnotation(CsvCustomBindByName.class)</span>
+<span class="nc" id="L331">                        .converter();</span>
+<span class="nc" id="L332">                BeanField bean = instantiateCustomConverter(converter);</span>
+<span class="nc" id="L333">                bean.setField(field);</span>
+<span class="nc" id="L334">                required = annotation.required();</span>
+<span class="nc" id="L335">                bean.setRequired(required);</span>
+<span class="nc" id="L336">                fieldMap.put(columnName, bean);</span>
+<span class="nc" id="L337">            }</span>
+
+            // Otherwise it must be CsvBindByName.
+            else {
+<span class="fc" id="L341">                CsvBindByName annotation = field.getAnnotation(CsvBindByName.class);</span>
+<span class="fc" id="L342">                required = annotation.required();</span>
+<span class="fc" id="L343">                columnName = annotation.column().toUpperCase().trim();</span>
+<span class="fc" id="L344">                locale = annotation.locale();</span>
+<span class="pc bpc" id="L345" title="1 of 2 branches missed.">                if (field.isAnnotationPresent(CsvDate.class)) {</span>
+<span class="nc" id="L346">                    String formatString = field.getAnnotation(CsvDate.class).value();</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">                    if (StringUtils.isEmpty(columnName)) {</span>
+<span class="nc" id="L348">                        fieldMap.put(field.getName().toUpperCase(),</span>
+                                new BeanFieldDate(field, required, formatString, locale, errorLocale));
+                    } else {
+<span class="nc" id="L351">                        fieldMap.put(columnName, new BeanFieldDate(field, required, formatString, locale, errorLocale));</span>
+                    }
+<span class="nc" id="L353">                } else {</span>
+<span class="pc bpc" id="L354" title="1 of 2 branches missed.">                    if (StringUtils.isEmpty(columnName)) {</span>
+<span class="nc" id="L355">                        fieldMap.put(field.getName().toUpperCase(),</span>
+                                new BeanFieldPrimitiveTypes(field, required, locale, errorLocale));
+                    } else {
+<span class="fc" id="L358">                        fieldMap.put(columnName, new BeanFieldPrimitiveTypes(field, required, locale, errorLocale));</span>
+                    }
+                }
+            }
+<span class="fc" id="L362">        }</span>
+<span class="fc" id="L363">    }</span>
+
+    private PropertyDescriptor[] loadDescriptors(Class&lt;? extends T&gt; cls) throws IntrospectionException {
+<span class="fc" id="L366">        BeanInfo beanInfo = Introspector.getBeanInfo(cls);</span>
+<span class="fc" id="L367">        return beanInfo.getPropertyDescriptors();</span>
+    }
+
+    private List&lt;Field&gt; loadFields(Class&lt;? extends T&gt; cls) {
+<span class="fc" id="L371">        List&lt;Field&gt; fields = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L372" title="All 2 branches covered.">        for (Field field : FieldUtils.getAllFields(cls)) {</span>
+<span class="fc bfc" id="L373" title="All 2 branches covered.">            if (field.isAnnotationPresent(CsvBindByName.class)</span>
+<span class="pc bpc" id="L374" title="1 of 2 branches missed.">                    || field.isAnnotationPresent(CsvCustomBindByName.class)) {</span>
+<span class="fc" id="L375">                fields.add(field);</span>
+            }
+        }
+<span class="pc bpc" id="L378" title="1 of 2 branches missed.">        annotationDriven = !fields.isEmpty();</span>
+<span class="fc" id="L379">        return fields;</span>
+    }
+
+    @Override
+    public T createBean() throws InstantiationException, IllegalAccessException, IllegalStateException {
+<span class="pc bpc" id="L384" title="1 of 2 branches missed.">        if(type == null) {</span>
+<span class="nc" id="L385">            throw new IllegalStateException(ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;type.unset&quot;));</span>
+        }
+<span class="fc" id="L387">        return type.newInstance();</span>
+    }
+
+    /**
+     * Get the class type that the Strategy is mapping.
+     *
+     * @return Class of the object that mapper will create.
+     */
+    public Class&lt;? extends T&gt; getType() {
+<span class="fc" id="L396">        return type;</span>
+    }
+
+    /**
+     * Sets the class type that is being mapped.
+     * Also initializes the mapping between column names and bean fields.
+     */
+    // The rest of the Javadoc is inherited.
+    @Override
+    public void setType(Class&lt;? extends T&gt; type) throws CsvBadConverterException {
+<span class="fc" id="L406">        this.type = type;</span>
+<span class="fc" id="L407">        loadFieldMap();</span>
+        try {
+<span class="fc" id="L409">            descriptorMap = loadDescriptorMap();</span>
+        }
+<span class="nc" id="L411">        catch(IntrospectionException e) {</span>
+            // For the record, especially with respect to code coverage, I have
+            // tried to trigger this exception, and I can't. I have read the
+            // source code for Java 8, and I can find no possible way for
+            // IntrospectionException to be thrown by our code.
+            // -Andrew Jones 31.07.2017
+<span class="nc" id="L417">            CsvBeanIntrospectionException csve = new CsvBeanIntrospectionException(</span>
+<span class="nc" id="L418">                    ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;bean.descriptors.uninitialized&quot;));</span>
+<span class="nc" id="L419">            csve.initCause(e);</span>
+<span class="nc" id="L420">            throw csve;</span>
+<span class="fc" id="L421">        }</span>
+<span class="fc" id="L422">    }</span>
+    
+    @Override
+    public void setErrorLocale(Locale errorLocale) {
+<span class="nc" id="L426">        this.errorLocale = ObjectUtils.defaultIfNull(errorLocale, Locale.getDefault());</span>
+        
+        // It's very possible that setType() was called first, which creates all
+        // of the BeanFields, so we need to go back through the list and correct
+        // them all.
+<span class="nc bnc" id="L431" title="All 2 branches missed.">        if(fieldMap != null) {</span>
+<span class="nc bnc" id="L432" title="All 2 branches missed.">            for(BeanField f : fieldMap.values()) {</span>
+<span class="nc" id="L433">                f.setErrorLocale(errorLocale);</span>
+<span class="nc" id="L434">            }</span>
+        }
+<span class="nc" id="L436">    }</span>
+
+    /**
+     * Determines whether the mapping strategy is driven by annotations.
+     * For this mapping strategy, the supported annotations are:
+     * &lt;ul&gt;&lt;li&gt;{@link com.opencsv.bean.CsvBindByName}&lt;/li&gt;
+     * &lt;li&gt;{@link com.opencsv.bean.CsvCustomBindByName}&lt;/li&gt;
+     * &lt;/ul&gt;
+     *
+     * @return Whether the mapping strategy is driven by annotations
+     */
+    @Override
+    public boolean isAnnotationDriven() {
+<span class="fc" id="L449">        return annotationDriven;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.6.201602180812</span></div></body></html>

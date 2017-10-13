@@ -1,0 +1,4 @@
+rootProject.name = 'ChainingMapReduce'
+include 'mapreduce'
+include 'opencsv'
+

@@ -1,0 +1,492 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>CSVWriter.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gurpreetkaur_chabada_hw1</a> &gt; <a href="index.source.html" class="el_package">com.opencsv</a> &gt; <span class="el_source">CSVWriter.java</span></div><h1>CSVWriter.java</h1><pre class="source lang-java linenums">package com.opencsv;
+
+/*
+ Copyright 2015 Bytecode Pty Ltd.
+
+ Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ */
+
+import java.io.*;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
+
+/**
+ * A very simple CSV writer released under a commercial-friendly license.
+ *
+ * @author Glen Smith
+ */
+public class CSVWriter implements Closeable, Flushable {
+
+   public static final int INITIAL_STRING_SIZE = 1024;
+   /**
+    * The character used for escaping quotes.
+    */
+   public static final char DEFAULT_ESCAPE_CHARACTER = '&quot;';
+   /**
+    * The default separator to use if none is supplied to the constructor.
+    */
+   public static final char DEFAULT_SEPARATOR = ',';
+   /**
+    * The default quote character to use if none is supplied to the
+    * constructor.
+    */
+   public static final char DEFAULT_QUOTE_CHARACTER = '&quot;';
+   /**
+    * The quote constant to use when you wish to suppress all quoting.
+    */
+   public static final char NO_QUOTE_CHARACTER = '\u0000';
+   /**
+    * The escape constant to use when you wish to suppress all escaping.
+    */
+   public static final char NO_ESCAPE_CHARACTER = '\u0000';
+   /**
+    * Default line terminator.
+    */
+   public static final String DEFAULT_LINE_END = &quot;\n&quot;;
+   /**
+    * RFC 4180 compliant line terminator.
+    */
+   public static final String RFC4180_LINE_END = &quot;\r\n&quot;;
+
+   protected final Writer writer;
+   protected final char separator;
+   protected final char quotechar;
+   protected final char escapechar;
+   protected String lineEnd;
+   protected ResultSetHelper resultService;
+   protected volatile IOException exception;
+
+   /**
+    * Constructs CSVWriter using a comma for the separator.
+    *
+    * @param writer The writer to an underlying CSV source.
+    */
+   public CSVWriter(Writer writer) {
+<span class="nc" id="L76">      this(writer, DEFAULT_SEPARATOR);</span>
+<span class="nc" id="L77">   }</span>
+
+   /**
+    * Constructs CSVWriter with supplied separator.
+    *
+    * @param writer    The writer to an underlying CSV source.
+    * @param separator The delimiter to use for separating entries.
+    * @deprecated Please use {@link CSVWriter#CSVWriter(java.io.Writer, char, char, char, java.lang.String)} instead.
+    */
+   @Deprecated
+   public CSVWriter(Writer writer, char separator) {
+<span class="nc" id="L88">      this(writer, separator, DEFAULT_QUOTE_CHARACTER);</span>
+<span class="nc" id="L89">   }</span>
+
+   /**
+    * Constructs CSVWriter with supplied separator and quote char.
+    *
+    * @param writer    The writer to an underlying CSV source.
+    * @param separator The delimiter to use for separating entries
+    * @param quotechar The character to use for quoted elements
+    * @deprecated Please use {@link CSVWriter#CSVWriter(java.io.Writer, char, char, char, java.lang.String)} instead.
+    */
+   @Deprecated
+   public CSVWriter(Writer writer, char separator, char quotechar) {
+<span class="nc" id="L101">      this(writer, separator, quotechar, DEFAULT_ESCAPE_CHARACTER);</span>
+<span class="nc" id="L102">   }</span>
+
+   /**
+    * Constructs CSVWriter with supplied separator and quote char.
+    *
+    * @param writer     The writer to an underlying CSV source.
+    * @param separator  The delimiter to use for separating entries
+    * @param quotechar  The character to use for quoted elements
+    * @param escapechar The character to use for escaping quotechars or escapechars
+    * @deprecated Please use {@link CSVWriter#CSVWriter(java.io.Writer, char, char, char, java.lang.String)} instead.
+    */
+   @Deprecated
+   public CSVWriter(Writer writer, char separator, char quotechar, char escapechar) {
+<span class="nc" id="L115">      this(writer, separator, quotechar, escapechar, DEFAULT_LINE_END);</span>
+<span class="nc" id="L116">   }</span>
+
+
+   /**
+    * Constructs CSVWriter with supplied separator and quote char.
+    *
+    * @param writer    The writer to an underlying CSV source.
+    * @param separator The delimiter to use for separating entries
+    * @param quotechar The character to use for quoted elements
+    * @param lineEnd   The line feed terminator to use
+    * @deprecated Please use {@link CSVWriter#CSVWriter(java.io.Writer, char, char, char, java.lang.String)} instead.
+    */
+   @Deprecated
+   public CSVWriter(Writer writer, char separator, char quotechar, String lineEnd) {
+<span class="nc" id="L130">      this(writer, separator, quotechar, DEFAULT_ESCAPE_CHARACTER, lineEnd);</span>
+<span class="nc" id="L131">   }</span>
+
+
+   /**
+    * Constructs CSVWriter with supplied separator, quote char, escape char and line ending.
+    *
+    * @param writer     The writer to an underlying CSV source.
+    * @param separator  The delimiter to use for separating entries
+    * @param quotechar  The character to use for quoted elements
+    * @param escapechar The character to use for escaping quotechars or escapechars
+    * @param lineEnd    The line feed terminator to use
+    */
+<span class="nc" id="L143">   public CSVWriter(Writer writer, char separator, char quotechar, char escapechar, String lineEnd) {</span>
+<span class="nc" id="L144">      this.writer = writer;</span>
+<span class="nc" id="L145">      this.separator = separator;</span>
+<span class="nc" id="L146">      this.quotechar = quotechar;</span>
+<span class="nc" id="L147">      this.escapechar = escapechar;</span>
+<span class="nc" id="L148">      this.lineEnd = lineEnd;</span>
+<span class="nc" id="L149">   }</span>
+
+   /**
+    * Writes iterable to a CSV file. The list is assumed to be a String[]
+    *
+    * @param allLines         an Iterable of String[], with each String[] representing a line of
+    *                         the file.
+    * @param applyQuotesToAll true if all values are to be quoted.  false if quotes only
+    *                         to be applied to values which contain the separator, escape,
+    *                         quote or new line characters.
+    */
+   public void writeAll(Iterable&lt;String[]&gt; allLines, boolean applyQuotesToAll) {
+<span class="nc" id="L161">      StringBuilder sb = new StringBuilder(INITIAL_STRING_SIZE);</span>
+      try {
+<span class="nc bnc" id="L163" title="All 2 branches missed.">         for (String[] line : allLines) {</span>
+<span class="nc" id="L164">            writeNext(line, applyQuotesToAll, sb);</span>
+<span class="nc" id="L165">            sb.setLength(0);</span>
+<span class="nc" id="L166">         }</span>
+<span class="nc" id="L167">      } catch (IOException e){</span>
+<span class="nc" id="L168">         exception = e;</span>
+<span class="nc" id="L169">      }</span>
+<span class="nc" id="L170">   }</span>
+
+   /**
+    * Writes the entire list to a CSV file.
+    * The list is assumed to be a String[].
+    *
+    * @param allLines         A List of String[] with each String[] representing a line of
+    *                         the file.
+    * @param applyQuotesToAll True if all values are to be quoted. False if quotes only
+    *                         to be applied to values which contain the separator, escape,
+    *                         quote, or new line characters.
+    */
+   public void writeAll(List&lt;String[]&gt; allLines, boolean applyQuotesToAll) {
+<span class="nc" id="L183">      writeAll((Iterable&lt;String[]&gt;)allLines, applyQuotesToAll);</span>
+<span class="nc" id="L184">   }</span>
+
+   /**
+    * Writes iterable to a CSV file. The list is assumed to be a String[]
+    *
+    * @param allLines an Iterable of String[], with each String[] representing a line of
+    *                 the file.
+    */
+   public void writeAll(Iterable&lt;String[]&gt; allLines) {
+<span class="nc" id="L193">      StringBuilder sb = new StringBuilder(INITIAL_STRING_SIZE);</span>
+      try {
+<span class="nc bnc" id="L195" title="All 2 branches missed.">         for (String[] line : allLines) {</span>
+<span class="nc" id="L196">            writeNext(line, true, sb);</span>
+<span class="nc" id="L197">            sb.setLength(0);</span>
+<span class="nc" id="L198">         }</span>
+<span class="nc" id="L199">      } catch (IOException e){</span>
+<span class="nc" id="L200">         exception = e;</span>
+<span class="nc" id="L201">      }</span>
+<span class="nc" id="L202">   }</span>
+
+   /**
+    * Writes the entire list to a CSV file.
+    * The list is assumed to be a String[].
+    *
+    * @param allLines A List of String[] with each String[] representing a line of
+    *                 the file.
+    */
+   public void writeAll(List&lt;String[]&gt; allLines) {
+<span class="nc" id="L212">      writeAll((Iterable&lt;String[]&gt;)allLines);</span>
+<span class="nc" id="L213">   }</span>
+
+   /**
+    * Writes the column names.
+    *
+    * @param rs ResultSet containing column names.
+    * @param applyQuotesToAll Whether all header names should be quoted.
+    * @throws SQLException Thrown by {@link com.opencsv.ResultSetHelper#getColumnNames(java.sql.ResultSet)}
+    */
+   protected void writeColumnNames(ResultSet rs, boolean applyQuotesToAll) throws SQLException {
+<span class="nc" id="L223">      writeNext(resultService().getColumnNames(rs), applyQuotesToAll);</span>
+<span class="nc" id="L224">   }</span>
+
+   /**
+    * Writes the entire ResultSet to a CSV file.
+    *
+    * The caller is responsible for closing the ResultSet. Values are not trimmed.
+    * Quotes are applied to all values in the output.
+    *
+    * @param rs                 The result set to write
+    * @param includeColumnNames True if you want column names in the output, false otherwise
+    * @throws java.io.IOException   Thrown by ResultSetHelper.getColumnValues()
+    * @throws java.sql.SQLException Thrown by ResultSetHelper.getColumnValues()
+    *
+    * @return Number of lines written.
+    */
+   public int writeAll(ResultSet rs, boolean includeColumnNames) throws SQLException, IOException {
+<span class="nc" id="L240">      return writeAll(rs, includeColumnNames, false, true);</span>
+   }
+
+   /**
+    * Writes the entire ResultSet to a CSV file.
+    *
+    * The caller is responsible for closing the ResultSet. Quotes are applied to
+    * all values in the output.
+    *
+    * @param rs The Result set to write.
+    * @param includeColumnNames Include the column names in the output.
+    * @param trim Remove spaces from the data before writing.
+    *
+    * @throws java.io.IOException   Thrown by ResultSetHelper.getColumnValues()
+    * @throws java.sql.SQLException Thrown by ResultSetHelper.getColumnValues()
+    *
+    * @return Number of lines written - including header.
+    */
+   public int writeAll(ResultSet rs, boolean includeColumnNames, boolean trim) throws SQLException, IOException {
+<span class="nc" id="L259">       return writeAll(rs, includeColumnNames, trim, true);</span>
+   }
+   
+   /**
+    * Writes the entire ResultSet to a CSV file.
+    *
+    * The caller is responsible for closing the ResultSet.
+    *
+    * @param rs The Result set to write.
+    * @param includeColumnNames Include the column names in the output.
+    * @param trim Remove spaces from the data before writing.
+    * @param applyQuotesToAll Whether all values should be quoted.
+    *
+    * @throws java.io.IOException   Thrown by ResultSetHelper.getColumnValues()
+    * @throws java.sql.SQLException Thrown by ResultSetHelper.getColumnValues()
+    *
+    * @return Number of lines written - including header.
+    */
+   public int writeAll(ResultSet rs, boolean includeColumnNames, boolean trim, boolean applyQuotesToAll) throws SQLException, IOException {
+<span class="nc" id="L278">      int linesWritten = 0;</span>
+
+<span class="nc bnc" id="L280" title="All 2 branches missed.">      if (includeColumnNames) {</span>
+<span class="nc" id="L281">         writeColumnNames(rs, applyQuotesToAll);</span>
+<span class="nc" id="L282">         linesWritten++;</span>
+      }
+
+<span class="nc bnc" id="L285" title="All 2 branches missed.">      while (rs.next()) {</span>
+<span class="nc" id="L286">         writeNext(resultService().getColumnValues(rs, trim), applyQuotesToAll);</span>
+<span class="nc" id="L287">         linesWritten++;</span>
+      }
+
+<span class="nc" id="L290">      return linesWritten;</span>
+   }
+
+   /**
+    * Writes the next line to the file.
+    *
+    * @param nextLine         A string array with each comma-separated element as a separate
+    *                         entry.
+    * @param applyQuotesToAll True if all values are to be quoted. False applies quotes only
+    *                         to values which contain the separator, escape, quote, or new line characters.
+    */
+   public void writeNext(String[] nextLine, boolean applyQuotesToAll) {
+      try {
+<span class="nc" id="L303">         writeNext(nextLine, applyQuotesToAll, new StringBuilder(INITIAL_STRING_SIZE));</span>
+<span class="nc" id="L304">      } catch (IOException e) {</span>
+<span class="nc" id="L305">         exception = e;</span>
+<span class="nc" id="L306">      }</span>
+<span class="nc" id="L307">   }</span>
+
+
+   /**
+    * Writes the next line to the file.  This method is a fail-fast method that will throw the
+    * IOException of the writer supplied to the CSVWriter (if the Writer does not handle the exceptions itself like
+    * the PrintWriter class).
+    *
+    * @param nextLine         a string array with each comma-separated element as a separate
+    *                         entry.
+    * @param applyQuotesToAll true if all values are to be quoted.  false applies quotes only
+    *                         to values which contain the separator, escape, quote or new line characters.
+    * @param appendable       Appendable used as buffer.
+    * @throws IOException Exceptions thrown by the writer supplied to CSVWriter.
+    */
+   protected void writeNext(String[] nextLine, boolean applyQuotesToAll, Appendable appendable) throws IOException {
+<span class="nc bnc" id="L323" title="All 2 branches missed.">      if (nextLine == null) {</span>
+<span class="nc" id="L324">         return;</span>
+      }
+
+<span class="nc bnc" id="L327" title="All 2 branches missed.">      for (int i = 0; i &lt; nextLine.length; i++) {</span>
+
+<span class="nc bnc" id="L329" title="All 2 branches missed.">         if (i != 0) {</span>
+<span class="nc" id="L330">            appendable.append(separator);</span>
+         }
+
+<span class="nc" id="L333">         String nextElement = nextLine[i];</span>
+
+<span class="nc bnc" id="L335" title="All 2 branches missed.">         if (nextElement == null) {</span>
+<span class="nc" id="L336">            continue;</span>
+         }
+
+<span class="nc" id="L339">         Boolean stringContainsSpecialCharacters = stringContainsSpecialCharacters(nextElement);</span>
+
+<span class="nc bnc" id="L341" title="All 6 branches missed.">         if ((applyQuotesToAll || stringContainsSpecialCharacters) &amp;&amp; quotechar != NO_QUOTE_CHARACTER) {</span>
+<span class="nc" id="L342">            appendable.append(quotechar);</span>
+         }
+
+<span class="nc bnc" id="L345" title="All 2 branches missed.">         if (stringContainsSpecialCharacters) {</span>
+<span class="nc" id="L346">            processLine(nextElement, appendable);</span>
+         } else {
+<span class="nc" id="L348">            appendable.append(nextElement);</span>
+         }
+
+<span class="nc bnc" id="L351" title="All 6 branches missed.">         if ((applyQuotesToAll || stringContainsSpecialCharacters) &amp;&amp; quotechar != NO_QUOTE_CHARACTER) {</span>
+<span class="nc" id="L352">            appendable.append(quotechar);</span>
+         }
+      }
+
+<span class="nc" id="L356">      appendable.append(lineEnd);</span>
+<span class="nc" id="L357">      writer.write(appendable.toString());</span>
+<span class="nc" id="L358">   }</span>
+
+   /**
+    * Writes the next line to the file.
+    *
+    * @param nextLine A string array with each comma-separated element as a separate
+    *                 entry.
+    */
+   public void writeNext(String[] nextLine) {
+<span class="nc" id="L367">      writeNext(nextLine, true);</span>
+<span class="nc" id="L368">   }</span>
+
+   /**
+    * Checks to see if the line contains special characters.
+    * @param line Element of data to check for special characters.
+    * @return True if the line contains the quote, escape, separator, newline, or return.
+    */
+   protected boolean stringContainsSpecialCharacters(String line) {
+<span class="nc bnc" id="L376" title="All 2 branches missed.">      return line.indexOf(quotechar) != -1</span>
+<span class="nc bnc" id="L377" title="All 2 branches missed.">              || line.indexOf(escapechar) != -1</span>
+<span class="nc bnc" id="L378" title="All 2 branches missed.">              || line.indexOf(separator) != -1</span>
+<span class="nc bnc" id="L379" title="All 2 branches missed.">              || line.contains(DEFAULT_LINE_END)</span>
+<span class="nc bnc" id="L380" title="All 2 branches missed.">              || line.contains(&quot;\r&quot;);</span>
+   }
+
+   /**
+    * Processes all the characters in a line.
+    * @param nextElement Element to process.
+    * @param appendable - Appendable holding the processed data.
+    * @throws IOException - IOException thrown by the writer supplied to the CSVWriter
+    */
+   protected void processLine(String nextElement, Appendable appendable) throws IOException {
+<span class="nc bnc" id="L390" title="All 2 branches missed.">      for (int j = 0; j &lt; nextElement.length(); j++) {</span>
+<span class="nc" id="L391">         char nextChar = nextElement.charAt(j);</span>
+<span class="nc" id="L392">         processCharacter(appendable, nextChar);</span>
+      }
+<span class="nc" id="L394">   }</span>
+
+   /**
+    * Appends the character to the StringBuilder adding the escape character if needed.
+    * @param appendable - Appendable holding the processed data.
+    * @param nextChar Character to process
+    * @throws IOException - IOException thrown by the writer supplied to the CSVWriter.
+    */
+   protected void processCharacter(Appendable appendable, char nextChar) throws IOException {
+<span class="nc bnc" id="L403" title="All 4 branches missed.">      if (escapechar != NO_ESCAPE_CHARACTER &amp;&amp; checkCharactersToEscape(nextChar)) {</span>
+<span class="nc" id="L404">         appendable.append(escapechar);</span>
+      }
+<span class="nc" id="L406">      appendable.append(nextChar);</span>
+<span class="nc" id="L407">   }</span>
+
+   /**
+    * Checks whether the next character that is to be written out is a special
+    * character that must be quoted.
+    * The quote character, escape charater, and separator are special characters.
+    *
+    * @param nextChar The next character to be written
+    * @return Whether the character needs to be quoted or not
+    */
+   protected boolean checkCharactersToEscape(char nextChar) {
+<span class="nc bnc" id="L418" title="All 14 branches missed.">      return quotechar == NO_QUOTE_CHARACTER</span>
+              ? (nextChar == quotechar || nextChar == escapechar || nextChar == separator || nextChar == '\n')
+              : (nextChar == quotechar || nextChar == escapechar);
+   }
+
+   /**
+    * Flush underlying stream to writer.
+    *
+    * @throws IOException If bad things happen
+    */
+   @Override
+   public void flush() throws IOException {
+<span class="nc" id="L430">      writer.flush();</span>
+<span class="nc" id="L431">   }</span>
+
+   /**
+    * Close the underlying stream writer flushing any buffered content.
+    *
+    * @throws IOException If bad things happen
+    */
+   @Override
+   public void close() throws IOException {
+<span class="nc" id="L440">      flush();</span>
+<span class="nc" id="L441">      writer.close();</span>
+<span class="nc" id="L442">   }</span>
+
+   /**
+    * Flushes the buffer and checks to see if the there has been an error in the printstream.
+    *
+    * @return True if the print stream has encountered an error
+    *          either on the underlying output stream or during a format
+    *          conversion.
+    */
+   public boolean checkError() {
+
+<span class="nc bnc" id="L453" title="All 2 branches missed.">      if (writer instanceof PrintWriter) {</span>
+<span class="nc" id="L454">         PrintWriter pw = (PrintWriter) writer;</span>
+<span class="nc" id="L455">         return pw.checkError();</span>
+      }
+
+<span class="nc" id="L458">      flushQuietly();  // checkError in the PrintWriter class flushes the buffer so we shall too.</span>
+<span class="nc bnc" id="L459" title="All 2 branches missed.">      return exception != null;</span>
+   }
+
+   /**
+    * Sets the result service.
+    * @param resultService The ResultSetHelper
+    */
+   public void setResultService(ResultSetHelper resultService) {
+<span class="nc" id="L467">      this.resultService = resultService;</span>
+<span class="nc" id="L468">   }</span>
+
+    /**
+     * Lazy resultSetHelper creation.
+     * @return Instance of resultSetHelper
+     */
+   protected ResultSetHelper resultService(){
+<span class="nc bnc" id="L475" title="All 2 branches missed.">      if (resultService == null){</span>
+<span class="nc" id="L476">         resultService = new ResultSetHelperService();</span>
+      }
+<span class="nc" id="L478">      return resultService;</span>
+   }
+
+   /**
+    * Flushes the writer without throwing any exceptions.
+    */
+   public void flushQuietly() {
+      try {
+<span class="nc" id="L486">         flush();</span>
+<span class="nc" id="L487">      } catch (IOException e) {</span>
+         // catch exception and ignore.
+<span class="nc" id="L489">      }</span>
+<span class="nc" id="L490">   }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.6.201602180812</span></div></body></html>

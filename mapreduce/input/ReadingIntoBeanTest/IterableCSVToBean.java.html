@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>IterableCSVToBean.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gurpreetkaur_chabada_hw1</a> &gt; <a href="index.source.html" class="el_package">com.opencsv.bean</a> &gt; <span class="el_source">IterableCSVToBean.java</span></div><h1>IterableCSVToBean.java</h1><pre class="source lang-java linenums">package com.opencsv.bean;
+
+/*
+ * Copyright 2015 Bytecode Pty Ltd.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
+
+import java.beans.IntrospectionException;
+import java.beans.PropertyDescriptor;
+import java.beans.PropertyEditor;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.util.Iterator;
+import java.util.Locale;
+import java.util.NoSuchElementException;
+import java.util.ResourceBundle;
+import org.apache.commons.lang3.ObjectUtils;
+
+/**
+ * Converts CSV strings to objects.
+ * Unlike CsvToBean it returns a single record at a time.
+ *
+ * @param &lt;T&gt; Class to convert the objects to.
+ * @deprecated Use {@link CsvToBean#iterator()} instead.
+ */
+@Deprecated
+public class IterableCSVToBean&lt;T&gt; extends AbstractCSVToBean implements Iterable&lt;T&gt; {
+    private final MappingStrategy&lt;T&gt; strategy;
+    private final CSVReader csvReader;
+    private final CsvToBeanFilter filter;
+    private boolean hasHeader;
+<span class="nc" id="L46">    private Locale errorLocale = Locale.getDefault();</span>
+
+    /**
+     * IterableCSVToBean constructor
+     *
+     * @param csvReader CSVReader.  Should not be null.
+     * @param strategy  MappingStrategy used to map CSV data to the bean.  Should not be null.
+     * @param filter    Optional CsvToBeanFilter used remove unwanted data from reads.
+     */
+<span class="nc" id="L55">    public IterableCSVToBean(CSVReader csvReader, MappingStrategy&lt;T&gt; strategy, CsvToBeanFilter filter) {</span>
+<span class="nc" id="L56">        this.csvReader = csvReader;</span>
+<span class="nc" id="L57">        this.strategy = strategy;</span>
+<span class="nc" id="L58">        this.filter = filter;</span>
+<span class="nc" id="L59">        this.hasHeader = false;</span>
+<span class="nc" id="L60">    }</span>
+
+    /**
+     * Retrieves the MappingStrategy.
+     * @return The MappingStrategy being used by the IterableCSVToBean.
+     */
+    protected MappingStrategy&lt;T&gt; getStrategy() {
+<span class="nc" id="L67">        return strategy;</span>
+    }
+
+    /**
+     * Retrieves the CSVReader.
+     * @return The CSVReader being used by the IterableCSVToBean.
+     */
+    protected CSVReader getCSVReader() {
+<span class="nc" id="L75">        return csvReader;</span>
+    }
+
+    /**
+     * Retrieves the CsvToBeanFilter
+     *
+     * @return The CsvToBeanFilter being used by the IterableCSVToBean.
+     */
+    protected CsvToBeanFilter getFilter() {
+<span class="nc" id="L84">        return filter;</span>
+    }
+
+    /**
+     * Reads and processes a single line.
+     * @return Object of type T with the requested information or null if there
+     *   are no more lines to process.
+     * @throws IllegalAccessException Thrown if there is a failure in introspection.
+     * @throws InstantiationException Thrown when getting the PropertyDescriptor for the class.
+     * @throws IOException Thrown when there is an unexpected error reading the file.
+     * @throws IntrospectionException Thrown if there is a failure in introspection.
+     * @throws InvocationTargetException Thrown if there is a failure in introspection.
+     * @throws CsvRequiredFieldEmptyException If a field is required, but the
+     *   header or column position for the field is not present in the input
+     */
+    public T nextLine() throws IllegalAccessException, InstantiationException,
+            IOException, IntrospectionException, InvocationTargetException,
+            CsvRequiredFieldEmptyException {
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (!hasHeader) {</span>
+<span class="nc" id="L103">            strategy.captureHeader(csvReader);</span>
+<span class="nc" id="L104">            hasHeader = true;</span>
+        }
+<span class="nc" id="L106">        T bean = null;</span>
+        String[] line;
+        do {
+<span class="nc" id="L109">            line = csvReader.readNext();</span>
+<span class="nc bnc" id="L110" title="All 6 branches missed.">        } while (line != null &amp;&amp; (filter != null &amp;&amp; !filter.allowLine(line)));</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">        if (line != null) {</span>
+<span class="nc" id="L112">            strategy.verifyLineLength(line.length);</span>
+<span class="nc" id="L113">            bean = strategy.createBean();</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">            for (int col = 0; col &lt; line.length; col++) {</span>
+<span class="nc" id="L115">                PropertyDescriptor prop = strategy.findDescriptor(col);</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">                if (null != prop) {</span>
+<span class="nc" id="L117">                    String value = checkForTrim(line[col], prop);</span>
+<span class="nc" id="L118">                    Object obj = convertValue(value, prop);</span>
+<span class="nc" id="L119">                    prop.getWriteMethod().invoke(bean, obj);</span>
+                }
+            }
+        }
+<span class="nc" id="L123">        return bean;</span>
+    }
+
+    @Override
+    protected PropertyEditor getPropertyEditor(PropertyDescriptor desc)
+            throws InstantiationException, IllegalAccessException {
+<span class="nc" id="L129">        Class&lt;?&gt; cls = desc.getPropertyEditorClass();</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">        if (null != cls) {</span>
+<span class="nc" id="L131">            return (PropertyEditor) cls.newInstance();</span>
+        }
+<span class="nc" id="L133">        return getPropertyEditorValue(desc.getPropertyType());</span>
+    }
+    
+    /**
+     * Sets the locale to be used for error messages.
+     * @param errorLocale The locale to be used for all error messages. If null,
+     *   the default locale is used.
+     * @since 4.0
+     */
+    public void setErrorLocale(Locale errorLocale) {
+<span class="nc" id="L143">        this.errorLocale = ObjectUtils.defaultIfNull(errorLocale, Locale.getDefault());</span>
+<span class="nc" id="L144">    }</span>
+    
+    @Override
+    public Iterator&lt;T&gt; iterator() {
+<span class="nc" id="L148">        return iterator(this);</span>
+    }
+
+    private Iterator&lt;T&gt; iterator(final IterableCSVToBean&lt;T&gt; bean) {
+<span class="nc" id="L152">        return new Iterator&lt;T&gt;() {</span>
+            private T nextBean;
+
+            @Override
+            public boolean hasNext() {
+<span class="nc bnc" id="L157" title="All 2 branches missed.">                if (nextBean != null) {</span>
+<span class="nc" id="L158">                    return true;</span>
+                }
+
+                try {
+<span class="nc" id="L162">                    nextBean = bean.nextLine();</span>
+<span class="nc" id="L163">                } catch (IllegalAccessException | InstantiationException</span>
+                        | IOException | IntrospectionException
+                        | InvocationTargetException
+                        | CsvRequiredFieldEmptyException e) {
+<span class="nc" id="L167">                    e.printStackTrace();</span>
+<span class="nc" id="L168">                }</span>
+
+<span class="nc bnc" id="L170" title="All 2 branches missed.">                return nextBean != null;</span>
+            }
+
+            @Override
+            public T next() {
+<span class="nc bnc" id="L175" title="All 2 branches missed.">                if (!hasNext()) {</span>
+<span class="nc" id="L176">                    throw new NoSuchElementException();</span>
+                }
+
+<span class="nc" id="L179">                T holder = nextBean;</span>
+<span class="nc" id="L180">                nextBean = null;</span>
+<span class="nc" id="L181">                return holder;</span>
+            }
+
+            @Override
+            public void remove() {
+<span class="nc" id="L186">                throw new UnsupportedOperationException(ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;read.only.iterator&quot;));</span>
+            }
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.6.201602180812</span></div></body></html>

@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>StatefulBeanToCsvBuilder.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gurpreetkaur_chabada_hw1</a> &gt; <a href="index.source.html" class="el_package">com.opencsv.bean</a> &gt; <span class="el_source">StatefulBeanToCsvBuilder.java</span></div><h1>StatefulBeanToCsvBuilder.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 2016 Andrew Rucker Jones.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.opencsv.bean;
+
+import com.opencsv.CSVWriter;
+
+import java.io.Writer;
+import java.util.Locale;
+import java.util.ResourceBundle;
+import org.apache.commons.lang3.ObjectUtils;
+
+/**
+ * This is a builder for StatefulBeanToCsv, allowing one to set all parameters
+ * necessary for writing a CSV file.
+ * 
+ * @param &lt;T&gt; The type of the beans being written
+ * @author Andrew Rucker Jones
+ * @since 3.9
+ */
+public class StatefulBeanToCsvBuilder&lt;T&gt; {
+    
+<span class="nc" id="L35">    private char separator = CSVWriter.DEFAULT_SEPARATOR;</span>
+<span class="nc" id="L36">    private char quotechar = CSVWriter.DEFAULT_QUOTE_CHARACTER;</span>
+<span class="nc" id="L37">    private char escapechar = CSVWriter.DEFAULT_ESCAPE_CHARACTER;</span>
+<span class="nc" id="L38">    private String lineEnd = CSVWriter.DEFAULT_LINE_END;</span>
+<span class="nc" id="L39">    private MappingStrategy&lt;T&gt; mappingStrategy = null;</span>
+    private final Writer writer;
+<span class="nc" id="L41">    private boolean throwExceptions = true;</span>
+<span class="nc" id="L42">    private boolean orderedResults = true;</span>
+<span class="nc" id="L43">    private Locale errorLocale = Locale.getDefault();</span>
+    
+    /** The nullary constructor may never be used. */
+<span class="nc" id="L46">    private StatefulBeanToCsvBuilder() {</span>
+<span class="nc" id="L47">        throw new IllegalStateException(String.format(</span>
+<span class="nc" id="L48">                ResourceBundle.getBundle(&quot;opencsv&quot;).getString(&quot;nullary.constructor.not.allowed&quot;),</span>
+<span class="nc" id="L49">                getClass().getName()));</span>
+    }
+
+    /**
+     * Default constructor - Being stateful the writer is required by the builder at the start and not added in later.
+     *
+     * @param writer - the writer that will be used to output the csv version of the bean.
+     */
+<span class="nc" id="L57">    public StatefulBeanToCsvBuilder(Writer writer) {</span>
+<span class="nc" id="L58">        this.writer = writer;</span>
+<span class="nc" id="L59">    }</span>
+    
+    /**
+     * Sets the mapping strategy for writing beans to a CSV destination.
+     * &lt;p&gt;If the mapping strategy is set this way, it will always be used instead
+     * of automatic determination of an appropriate mapping strategy.&lt;/p&gt;
+     * &lt;p&gt;It is perfectly legitimate to read a CSV source, take the mapping
+     * strategy from the read operation, and pass it in to this method for a
+     * write operation. This conserves some processing time, but, more
+     * importantly, preserves header ordering.&lt;/p&gt;
+     * 
+     * @param mappingStrategy The mapping strategy to be used for write operations
+     * @return this
+     */
+    public StatefulBeanToCsvBuilder&lt;T&gt; withMappingStrategy(MappingStrategy&lt;T&gt; mappingStrategy) {
+<span class="nc" id="L74">        this.mappingStrategy = mappingStrategy;</span>
+<span class="nc" id="L75">        return this;</span>
+    }
+    
+    /**
+     * @see com.opencsv.CSVWriter#separator
+     * @param separator The field separator to be used when writing a CSV file
+     * @return this
+     */
+    public StatefulBeanToCsvBuilder&lt;T&gt; withSeparator(char separator) {
+<span class="nc" id="L84">        this.separator = separator;</span>
+<span class="nc" id="L85">        return this;</span>
+    }
+    
+    /**
+     * @see com.opencsv.CSVWriter#quotechar
+     * @param quotechar The quote character to be used when writing a CSV file
+     * @return this
+     */
+    public StatefulBeanToCsvBuilder&lt;T&gt; withQuotechar(char quotechar) {
+<span class="nc" id="L94">        this.quotechar = quotechar;</span>
+<span class="nc" id="L95">        return this;</span>
+    }
+    
+    /**
+     * @see com.opencsv.CSVWriter#escapechar
+     * @param escapechar The escape character to be used when writing a CSV file
+     * @return this
+     */
+    public StatefulBeanToCsvBuilder&lt;T&gt; withEscapechar(char escapechar) {
+<span class="nc" id="L104">        this.escapechar = escapechar;</span>
+<span class="nc" id="L105">        return this;</span>
+    }
+    
+    /**
+     * @see com.opencsv.CSVWriter#lineEnd
+     * @param lineEnd The line ending to be used when writing a CSV file
+     * @return this
+     */
+    public StatefulBeanToCsvBuilder&lt;T&gt; withLineEnd(String lineEnd) {
+<span class="nc" id="L114">        this.lineEnd = lineEnd;</span>
+<span class="nc" id="L115">        return this;</span>
+    }
+
+    /**
+     * @param throwExceptions Whether or not exceptions should be thrown while
+     *   writing a CSV file. If not, they may be retrieved later by calling
+     *   {@link com.opencsv.bean.StatefulBeanToCsv#getCapturedExceptions() }.
+     * @return this
+     */
+    public StatefulBeanToCsvBuilder&lt;T&gt; withThrowExceptions(boolean throwExceptions) {
+<span class="nc" id="L125">        this.throwExceptions = throwExceptions;</span>
+<span class="nc" id="L126">        return this;</span>
+    }
+    
+    /**
+     * Sets whether or not results must be written in the same order in which
+     * they appear in the list of beans provided as input.
+     * 
+     * @param orderedResults Whether or not the lines written are in the same
+     *   order they appeared in the input
+     * @return this
+     * @see StatefulBeanToCsv#setOrderedResults(boolean)
+     * @since 4.0
+     */
+    public StatefulBeanToCsvBuilder&lt;T&gt; withOrderedResults(boolean orderedResults) {
+<span class="nc" id="L140">        this.orderedResults = orderedResults;</span>
+<span class="nc" id="L141">        return this;</span>
+    }
+    
+    /**
+     * Sets the locale to be used for all error messages.
+     * @param errorLocale Locale for error messages. If null, the default locale
+     *   is used.
+     * @return this
+     * @see StatefulBeanToCsv#setErrorLocale(java.util.Locale) 
+     * @since 4.0
+     */
+    public StatefulBeanToCsvBuilder&lt;T&gt; withErrorLocale(Locale errorLocale) {
+<span class="nc" id="L153">        this.errorLocale = ObjectUtils.defaultIfNull(errorLocale, Locale.getDefault());</span>
+<span class="nc" id="L154">        return this;</span>
+    }
+    
+    /**
+     * Builds a StatefulBeanToCsv from the information provided, filling in
+     * default values where none have been specified.
+     * @return A new {@link StatefulBeanToCsv}
+     */
+    public StatefulBeanToCsv&lt;T&gt; build() {
+<span class="nc" id="L163">        StatefulBeanToCsv&lt;T&gt; sbtcsv = new StatefulBeanToCsv(escapechar, lineEnd, mappingStrategy,</span>
+                quotechar, separator, throwExceptions, writer);
+<span class="nc" id="L165">        sbtcsv.setOrderedResults(orderedResults);</span>
+<span class="nc" id="L166">        sbtcsv.setErrorLocale(errorLocale);</span>
+<span class="nc" id="L167">        return sbtcsv;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.6.201602180812</span></div></body></html>

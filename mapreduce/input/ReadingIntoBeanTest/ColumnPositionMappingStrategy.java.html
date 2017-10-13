@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>ColumnPositionMappingStrategy.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gurpreetkaur_chabada_hw1</a> &gt; <a href="index.source.html" class="el_package">com.opencsv.bean</a> &gt; <span class="el_source">ColumnPositionMappingStrategy.java</span></div><h1>ColumnPositionMappingStrategy.java</h1><pre class="source lang-java linenums">package com.opencsv.bean;
+
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvBadConverterException;
+import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
+
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.util.*;
+
+/**
+ * Allows for the mapping of columns with their positions. Using this strategy
+ * without annotations ({@link com.opencsv.bean.CsvBindByPosition} or
+ * {@link com.opencsv.bean.CsvCustomBindByPosition}) requires all the columns
+ * to be present in the CSV file and for them to be in a particular order. Using
+ * annotations allows one to specify arbitrary zero-based column numbers for
+ * each bean member variable to be filled. Also this strategy requires that the
+ * file does NOT have a header. That said, the main use of this strategy is
+ * files that do not have headers.
+ *
+ * @param &lt;T&gt; Type of object that is being processed.
+ */
+public class ColumnPositionMappingStrategy&lt;T&gt; extends HeaderColumnNameMappingStrategy&lt;T&gt; {
+
+<span class="nc" id="L25">    private String[] columnMapping = new String[]{};</span>
+<span class="nc" id="L26">    private boolean columnsExplicitlySet = false;</span>
+
+    /**
+     * Default constructor.
+     */
+<span class="nc" id="L31">    public ColumnPositionMappingStrategy() {</span>
+<span class="nc" id="L32">    }</span>
+    
+    /**
+     * Captures the header from the reader - required by the MappingStrategy
+     * interface and is a do nothing method for the
+     * ColumnPositionMappingStrategy.
+     *
+     * @param reader {@inheritDoc}
+     * @throws IOException Would be thrown by the CSVReader if it was used :)
+     */
+    @Override
+    public void captureHeader(CSVReader reader) throws IOException {
+        //do nothing, first line is not header
+<span class="nc" id="L45">    }</span>
+
+    /**
+     * This method returns an empty array.
+     * The column position mapping strategy assumes that there is no header, and
+     * thus it also does not write one, accordingly.
+     * @return An empty array
+     */
+    @Override
+    public String[] generateHeader() {
+<span class="nc" id="L55">        return new String[0];</span>
+    }
+
+    @Override
+    public Integer getColumnIndex(String name) {
+<span class="nc" id="L60">        return indexLookup.get(name);</span>
+    }
+
+    @Override
+    public int findMaxFieldIndex() {
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        return columnMapping == null ? -1 : columnMapping.length-1;</span>
+    }
+
+    /**
+     * Gets a column name.
+     *
+     * @param col Position of the column.
+     * @return Column name or null if col &amp;gt; number of mappings.
+     */
+    @Override
+    public String getColumnName(int col) {
+<span class="nc bnc" id="L76" title="All 2 branches missed.">      return col &lt; columnMapping.length ? columnMapping[col] : null;</span>
+    }
+
+    /**
+     * Retrieves the column mappings.
+     *
+     * @return String array with the column mappings.
+     */
+    public String[] getColumnMapping() {
+<span class="nc" id="L85">        return columnMapping.clone();</span>
+    }
+
+    /**
+     * Setter for the ColumnMappings.
+     *
+     * @param columnMapping Column names to be mapped.
+     */
+    public void setColumnMapping(String... columnMapping) {
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        this.columnMapping = columnMapping != null ? columnMapping.clone() : new String[]{};</span>
+<span class="nc" id="L95">        resetIndexMap();</span>
+<span class="nc" id="L96">        createIndexLookup(this.columnMapping);</span>
+<span class="nc" id="L97">        columnsExplicitlySet = true;</span>
+<span class="nc" id="L98">    }</span>
+
+    /**
+     * Sets the class type that is being mapped.
+     * Also initializes the mapping between column positions and bean fields.
+     */
+    // The rest of the Javadoc is inherited.
+    @Override
+    public void setType(Class&lt;? extends T&gt; type) throws CsvBadConverterException {
+<span class="nc" id="L107">        super.setType(type);</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (!columnsExplicitlySet) {</span>
+<span class="nc" id="L109">            SortedMap&lt;Integer, BeanField&gt; cols = new TreeMap&lt;&gt;();</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">            for (BeanField beanField : fieldMap.values()) {</span>
+<span class="nc" id="L111">                if (beanField</span>
+<span class="nc" id="L112">                        .getField()</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">                        .getAnnotation(CsvCustomBindByPosition.class) != null) {</span>
+<span class="nc" id="L114">                    cols.put(beanField</span>
+<span class="nc" id="L115">                            .getField()</span>
+<span class="nc" id="L116">                            .getAnnotation(CsvCustomBindByPosition.class)</span>
+<span class="nc" id="L117">                            .position(), beanField);</span>
+<span class="nc" id="L118">                } else if (beanField</span>
+<span class="nc" id="L119">                        .getField()</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">                        .getAnnotation(CsvBindByPosition.class) != null) {</span>
+<span class="nc" id="L121">                    cols.put(beanField</span>
+<span class="nc" id="L122">                            .getField()</span>
+<span class="nc" id="L123">                            .getAnnotation(CsvBindByPosition.class)</span>
+<span class="nc" id="L124">                            .position(), beanField);</span>
+                }
+<span class="nc" id="L126">            }</span>
+
+<span class="nc bnc" id="L128" title="All 2 branches missed.">            if (!cols.isEmpty()) {</span>
+<span class="nc" id="L129">                columnMapping = new String[cols.lastKey() + 1];</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">                for (Map.Entry&lt;Integer, BeanField&gt; entry : cols.entrySet()) {</span>
+<span class="nc" id="L131">                    columnMapping[entry.getKey()] = entry</span>
+<span class="nc" id="L132">                            .getValue()</span>
+<span class="nc" id="L133">                            .getField()</span>
+<span class="nc" id="L134">                            .getName()</span>
+<span class="nc" id="L135">                            .toUpperCase()</span>
+<span class="nc" id="L136">                            .trim();</span>
+<span class="nc" id="L137">                }</span>
+<span class="nc" id="L138">                resetIndexMap();</span>
+<span class="nc" id="L139">                createIndexLookup(columnMapping);</span>
+            } else {
+<span class="nc" id="L141">                columnMapping = new String[0];</span>
+            }
+        }
+<span class="nc" id="L144">    }</span>
+
+    @Override
+    protected void loadFieldMap() throws CsvBadConverterException {
+        boolean required;
+<span class="nc" id="L149">        fieldMap = new HashMap&lt;&gt;();</span>
+
+<span class="nc bnc" id="L151" title="All 2 branches missed.">        for (Field field : loadFields(getType())) {</span>
+            String columnName;
+            String fieldLocale;
+
+            // Custom converters always have precedence.
+<span class="nc bnc" id="L156" title="All 2 branches missed.">            if (field.isAnnotationPresent(CsvCustomBindByPosition.class)) {</span>
+<span class="nc" id="L157">                columnName = field.getName().toUpperCase().trim();</span>
+<span class="nc" id="L158">                CsvCustomBindByPosition annotation = field</span>
+<span class="nc" id="L159">                        .getAnnotation(CsvCustomBindByPosition.class);</span>
+<span class="nc" id="L160">                Class&lt;? extends AbstractBeanField&gt; converter = annotation.converter();</span>
+<span class="nc" id="L161">                BeanField bean = instantiateCustomConverter(converter);</span>
+<span class="nc" id="L162">                bean.setField(field);</span>
+<span class="nc" id="L163">                required = annotation.required();</span>
+<span class="nc" id="L164">                bean.setRequired(required);</span>
+<span class="nc" id="L165">                fieldMap.put(columnName, bean);</span>
+<span class="nc" id="L166">            }</span>
+
+            // Then it must be a bind by position.
+            else {
+<span class="nc" id="L170">                CsvBindByPosition annotation = field.getAnnotation(CsvBindByPosition.class);</span>
+<span class="nc" id="L171">                required = annotation.required();</span>
+<span class="nc" id="L172">                columnName = field.getName().toUpperCase().trim();</span>
+<span class="nc" id="L173">                fieldLocale = annotation.locale();</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">                if (field.isAnnotationPresent(CsvDate.class)) {</span>
+<span class="nc" id="L175">                    String formatString = field.getAnnotation(CsvDate.class).value();</span>
+<span class="nc" id="L176">                    fieldMap.put(columnName, new BeanFieldDate(field, required, formatString, fieldLocale, errorLocale));</span>
+<span class="nc" id="L177">                } else {</span>
+<span class="nc" id="L178">                    fieldMap.put(columnName, new BeanFieldPrimitiveTypes(field, required, fieldLocale, errorLocale));</span>
+                }
+            }
+<span class="nc" id="L181">        }</span>
+<span class="nc" id="L182">    }</span>
+
+    @Override
+    public void verifyLineLength(int numberOfFields) throws CsvRequiredFieldEmptyException {
+<span class="nc bnc" id="L186" title="All 2 branches missed.">        if(columnMapping != null) {</span>
+            BeanField f;
+<span class="nc" id="L188">            StringBuilder sb = null;</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">            for(int i = numberOfFields; i &lt; columnMapping.length; i++) {</span>
+<span class="nc" id="L190">                f = findField(i);</span>
+<span class="nc bnc" id="L191" title="All 4 branches missed.">                if(f != null &amp;&amp; f.isRequired()) {</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">                    if(sb == null) {</span>
+<span class="nc" id="L193">                        sb = new StringBuilder(ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;multiple.required.field.empty&quot;));</span>
+                    }
+<span class="nc" id="L195">                    sb.append(' ');</span>
+<span class="nc" id="L196">                    sb.append(f.getField().getName());</span>
+                }
+            }
+<span class="nc bnc" id="L199" title="All 2 branches missed.">            if(sb != null) {</span>
+<span class="nc" id="L200">                throw new CsvRequiredFieldEmptyException(type, sb.toString());</span>
+            }
+        }
+<span class="nc" id="L203">    }</span>
+    
+    private List&lt;Field&gt; loadFields(Class&lt;? extends T&gt; cls) {
+<span class="nc" id="L206">        List&lt;Field&gt; fields = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">        for (Field field : cls.getDeclaredFields()) {</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">            if (field.isAnnotationPresent(CsvBindByPosition.class)</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">                    || field.isAnnotationPresent(CsvCustomBindByPosition.class)) {</span>
+<span class="nc" id="L210">                fields.add(field);</span>
+            }
+        }
+<span class="nc bnc" id="L213" title="All 2 branches missed.">        annotationDriven = !fields.isEmpty();</span>
+<span class="nc" id="L214">        return fields;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.6.201602180812</span></div></body></html>

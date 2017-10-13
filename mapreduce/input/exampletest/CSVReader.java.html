@@ -1,0 +1,573 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>CSVReader.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gurpreetkaur_chabada_hw1</a> &gt; <a href="index.source.html" class="el_package">com.opencsv</a> &gt; <span class="el_source">CSVReader.java</span></div><h1>CSVReader.java</h1><pre class="source lang-java linenums">package com.opencsv;
+
+/*
+ Copyright 2005 Bytecode Pty Ltd.
+
+ Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ */
+
+import com.opencsv.stream.reader.LineReader;
+
+import java.io.BufferedReader;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.Reader;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+
+/**
+ * A very simple CSV reader released under a commercial-friendly license.
+ *
+ * @author Glen Smith
+ */
+public class CSVReader implements Closeable, Iterable&lt;String[]&gt; {
+
+    public static final boolean DEFAULT_KEEP_CR = false;
+    public static final boolean DEFAULT_VERIFY_READER = true;
+    
+    /** The default line to start reading. */
+    public static final int DEFAULT_SKIP_LINES = 0;
+    
+    /**
+     * The default limit for the number of lines in a multiline record.
+     * Less than one means no limit.
+     */
+    public static final int DEFAULT_MULTILINE_LIMIT = 0;
+    
+    public static final int READ_AHEAD_LIMIT = Character.SIZE / Byte.SIZE;
+    protected ICSVParser parser;
+    protected int skipLines;
+    protected BufferedReader br;
+    protected LineReader lineReader;
+<span class="fc" id="L57">    protected boolean hasNext = true;</span>
+    protected boolean linesSkiped;
+    protected boolean keepCR;
+    protected boolean verifyReader;
+<span class="fc" id="L61">    protected int multilineLimit = DEFAULT_MULTILINE_LIMIT;</span>
+    protected final Locale errorLocale;
+
+<span class="fc" id="L64">    protected long linesRead = 0;</span>
+<span class="fc" id="L65">    protected long recordsRead = 0;</span>
+
+    /**
+     * Constructs CSVReader using defaults for all parameters.
+     *
+     * @param reader The reader to an underlying CSV source.
+     */
+    public CSVReader(Reader reader) {
+<span class="nc" id="L73">        this(reader, ICSVParser.DEFAULT_SEPARATOR,</span>
+                ICSVParser.DEFAULT_QUOTE_CHARACTER,
+                ICSVParser.DEFAULT_ESCAPE_CHARACTER);
+<span class="nc" id="L76">    }</span>
+
+    /**
+     * Constructs CSVReader with supplied separator.
+     *
+     * @param reader    The reader to an underlying CSV source.
+     * @param separator The delimiter to use for separating entries.
+     * @deprecated Please use {@link CSVReaderBuilder} instead.
+     */
+    @Deprecated
+    public CSVReader(Reader reader, char separator) {
+<span class="fc" id="L87">        this(reader, separator, ICSVParser.DEFAULT_QUOTE_CHARACTER,</span>
+                ICSVParser.DEFAULT_ESCAPE_CHARACTER);
+<span class="fc" id="L89">    }</span>
+
+    /**
+     * Constructs CSVReader with supplied separator and quote char.
+     *
+     * @param reader    The reader to an underlying CSV source.
+     * @param separator The delimiter to use for separating entries
+     * @param quotechar The character to use for quoted elements
+     * @deprecated Please use {@link CSVReaderBuilder} instead.
+     */
+    @Deprecated
+    public CSVReader(Reader reader, char separator, char quotechar) {
+<span class="nc" id="L101">        this(reader, separator, quotechar, ICSVParser.DEFAULT_ESCAPE_CHARACTER,</span>
+                DEFAULT_SKIP_LINES, ICSVParser.DEFAULT_STRICT_QUOTES);
+<span class="nc" id="L103">    }</span>
+
+    /**
+     * Constructs CSVReader with supplied separator, quote char, and quote handling
+     * behavior.
+     *
+     * @param reader       The reader to an underlying CSV source.
+     * @param separator    The delimiter to use for separating entries
+     * @param quotechar    The character to use for quoted elements
+     * @param strictQuotes Sets if characters outside the quotes are ignored
+     * @deprecated Please use {@link CSVReaderBuilder} instead.
+     */
+    @Deprecated
+    public CSVReader(Reader reader, char separator, char quotechar, boolean strictQuotes) {
+<span class="nc" id="L117">        this(reader, separator, quotechar, ICSVParser.DEFAULT_ESCAPE_CHARACTER,</span>
+                DEFAULT_SKIP_LINES, strictQuotes);
+<span class="nc" id="L119">    }</span>
+
+    /**
+     * Constructs CSVReader.
+     *
+     * @param reader    The reader to an underlying CSV source.
+     * @param separator The delimiter to use for separating entries
+     * @param quotechar The character to use for quoted elements
+     * @param escape    The character to use for escaping a separator or quote
+     * @deprecated Please use {@link CSVReaderBuilder} instead.
+     */
+    @Deprecated
+    public CSVReader(Reader reader, char separator,
+                     char quotechar, char escape) {
+<span class="fc" id="L133">        this(reader, separator, quotechar, escape, DEFAULT_SKIP_LINES,</span>
+                ICSVParser.DEFAULT_STRICT_QUOTES);
+<span class="fc" id="L135">    }</span>
+
+    /**
+     * Constructs CSVReader.
+     *
+     * @param reader    The reader to an underlying CSV source.
+     * @param separator The delimiter to use for separating entries
+     * @param quotechar The character to use for quoted elements
+     * @param line      The number of lines to skip before reading
+     * @deprecated Please use {@link CSVReaderBuilder} instead.
+     */
+    @Deprecated
+    public CSVReader(Reader reader, char separator, char quotechar, int line) {
+<span class="nc" id="L148">        this(reader, separator, quotechar, ICSVParser.DEFAULT_ESCAPE_CHARACTER,</span>
+                line, ICSVParser.DEFAULT_STRICT_QUOTES);
+<span class="nc" id="L150">    }</span>
+
+    /**
+     * Constructs CSVReader.
+     *
+     * @param reader    The reader to an underlying CSV source.
+     * @param separator The delimiter to use for separating entries
+     * @param quotechar The character to use for quoted elements
+     * @param escape    The character to use for escaping a separator or quote
+     * @param line      The number of lines to skip before reading
+     * @deprecated Please use {@link CSVReaderBuilder} instead.
+     */
+    @Deprecated
+    public CSVReader(Reader reader, char separator, char quotechar, char escape, int line) {
+<span class="nc" id="L164">        this(reader, separator, quotechar, escape, line,</span>
+                ICSVParser.DEFAULT_STRICT_QUOTES);
+<span class="nc" id="L166">    }</span>
+
+    /**
+     * Constructs CSVReader.
+     *
+     * @param reader       The reader to an underlying CSV source.
+     * @param separator    The delimiter to use for separating entries
+     * @param quotechar    The character to use for quoted elements
+     * @param escape       The character to use for escaping a separator or quote
+     * @param line      The number of lines to skip before reading
+     * @param strictQuotes Sets if characters outside the quotes are ignored
+     * @deprecated Please use {@link CSVReaderBuilder} instead.
+     */
+    @Deprecated
+    public CSVReader(Reader reader, char separator, char quotechar, char escape, int line, boolean strictQuotes) {
+<span class="fc" id="L181">        this(reader, separator, quotechar, escape, line, strictQuotes,</span>
+                ICSVParser.DEFAULT_IGNORE_LEADING_WHITESPACE);
+<span class="fc" id="L183">    }</span>
+
+    /**
+     * Constructs CSVReader with all data entered.
+     *
+     * @param reader                  The reader to an underlying CSV source.
+     * @param separator               The delimiter to use for separating entries
+     * @param quotechar               The character to use for quoted elements
+     * @param escape                  The character to use for escaping a separator or quote
+     * @param line                    The number of lines to skip before reading
+     * @param strictQuotes            Sets if characters outside the quotes are ignored
+     * @param ignoreLeadingWhiteSpace If true, parser should ignore white space before a quote in a field
+     * @deprecated Please use {@link CSVReaderBuilder} instead.
+     */
+    @Deprecated
+    public CSVReader(Reader reader, char separator, char quotechar, char escape, int line, boolean strictQuotes, boolean ignoreLeadingWhiteSpace) {
+<span class="fc" id="L199">        this(reader, line,</span>
+                new CSVParser(separator, quotechar, escape, strictQuotes,
+                        ignoreLeadingWhiteSpace,
+                        ICSVParser.DEFAULT_IGNORE_QUOTATIONS,
+                        ICSVParser.DEFAULT_NULL_FIELD_INDICATOR,
+<span class="fc" id="L204">                        Locale.getDefault()));</span>
+<span class="fc" id="L205">    }</span>
+
+    /**
+     * Constructs CSVReader with all data entered.
+     *
+     * @param reader                  The reader to an underlying CSV source.
+     * @param separator               The delimiter to use for separating entries
+     * @param quotechar               The character to use for quoted elements
+     * @param escape                  The character to use for escaping a separator or quote
+     * @param line                    The number of lines to skip before reading
+     * @param strictQuotes            Sets if characters outside the quotes are ignored
+     * @param ignoreLeadingWhiteSpace If true, parser should ignore white space before a quote in a field
+     * @param keepCR                  If true the reader will keep carriage returns, otherwise it will discard them.
+     * @deprecated Please use {@link CSVReaderBuilder} instead.
+     */
+    @Deprecated
+    public CSVReader(Reader reader, char separator, char quotechar, char escape, int line, boolean strictQuotes,
+                     boolean ignoreLeadingWhiteSpace, boolean keepCR) {
+<span class="nc" id="L223">        this(reader, line,</span>
+                new CSVParser(separator, quotechar, escape, strictQuotes,
+                        ignoreLeadingWhiteSpace,
+                        ICSVParser.DEFAULT_IGNORE_QUOTATIONS,
+                        ICSVParser.DEFAULT_NULL_FIELD_INDICATOR,
+<span class="nc" id="L228">                        Locale.getDefault()),</span>
+                keepCR, DEFAULT_VERIFY_READER, DEFAULT_MULTILINE_LIMIT,
+<span class="nc" id="L230">                Locale.getDefault());</span>
+<span class="nc" id="L231">    }</span>
+
+    /**
+     * Constructs CSVReader with supplied CSVParser.
+     *
+     * @param reader    The reader to an underlying CSV source.
+     * @param line      The number of lines to skip before reading
+     * @param icsvParser The parser to use to parse input
+     * @deprecated Please use {@link CSVReaderBuilder} instead.
+     */
+    @Deprecated
+    public CSVReader(Reader reader, int line, ICSVParser icsvParser) {
+<span class="fc" id="L243">        this(reader, line, icsvParser, DEFAULT_KEEP_CR, DEFAULT_VERIFY_READER,</span>
+<span class="fc" id="L244">                DEFAULT_MULTILINE_LIMIT, Locale.getDefault());</span>
+<span class="fc" id="L245">    }</span>
+
+    /**
+     * Constructs CSVReader with supplied CSVParser.
+     * &lt;p&gt;This constructor sets all necessary parameters for CSVReader, and
+     * intentionally has package access so only the builder can use it.&lt;/p&gt;
+     *
+     * @param reader    The reader to an underlying CSV source.
+     * @param line      The number of lines to skip before reading
+     * @param icsvParser The parser to use to parse input
+     * @param keepCR    True to keep carriage returns in data read, false otherwise
+     * @param verifyReader   True to verify reader before each read, false otherwise
+     */
+<span class="fc" id="L258">    CSVReader(Reader reader, int line, ICSVParser icsvParser, boolean keepCR, boolean verifyReader, int multilineLimit, Locale errorLocale) {</span>
+<span class="pc bpc" id="L259" title="1 of 2 branches missed.">        this.br =</span>
+                (reader instanceof BufferedReader ?
+                        (BufferedReader) reader :
+                        new BufferedReader(reader));
+<span class="fc" id="L263">        this.lineReader = new LineReader(br, keepCR);</span>
+<span class="fc" id="L264">        this.skipLines = line;</span>
+<span class="fc" id="L265">        this.parser = icsvParser;</span>
+<span class="fc" id="L266">        this.keepCR = keepCR;</span>
+<span class="fc" id="L267">        this.verifyReader = verifyReader;</span>
+<span class="fc" id="L268">        this.multilineLimit = multilineLimit;</span>
+<span class="fc" id="L269">        this.errorLocale = ObjectUtils.defaultIfNull(errorLocale, Locale.getDefault());</span>
+<span class="fc" id="L270">    }</span>
+    
+    /**
+     * @return The CSVParser used by the reader.
+     */
+    public ICSVParser getParser() {
+<span class="nc" id="L276">        return parser;</span>
+    }
+
+    /**
+     * Returns the number of lines in the CSV file to skip before processing.
+     * This is useful when there are miscellaneous data at the beginning of a file.
+     *
+     * @return The number of lines in the CSV file to skip before processing.
+     */
+    public int getSkipLines() {
+<span class="nc" id="L286">        return skipLines;</span>
+    }
+
+    /**
+     * Returns if the reader will keep carriage returns found in data or remove them.
+     *
+     * @return True if reader will keep carriage returns, false otherwise.
+     */
+    public boolean keepCarriageReturns() {
+<span class="nc" id="L295">        return keepCR;</span>
+    }
+
+    /**
+     * Reads the entire file into a List with each element being a String[] of
+     * tokens.
+     *
+     * @return A List of String[], with each String[] representing a line of the
+     * file.
+     * @throws IOException If bad things happen during the read
+     */
+    public List&lt;String[]&gt; readAll() throws IOException {
+
+<span class="nc" id="L308">        List&lt;String[]&gt; allElements = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L309" title="All 2 branches missed.">        while (hasNext) {</span>
+<span class="nc" id="L310">            String[] nextLineAsTokens = readNext();</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">            if (nextLineAsTokens != null) {</span>
+<span class="nc" id="L312">                allElements.add(nextLineAsTokens);</span>
+            }
+<span class="nc" id="L314">        }</span>
+<span class="nc" id="L315">        return allElements;</span>
+
+    }
+
+    /**
+     * Reads the next line from the buffer and converts to a string array.
+     *
+     * @return A string array with each comma-separated element as a separate
+     * entry, or null if there is no more input.
+     * @throws IOException If bad things happen during the read
+     */
+    public String[] readNext() throws IOException {
+
+<span class="fc" id="L328">        String[] result = null;</span>
+<span class="fc" id="L329">        int linesInThisRecord = 0;</span>
+        do {
+<span class="fc" id="L331">            String nextLine = getNextLine();</span>
+<span class="fc" id="L332">            linesInThisRecord++;</span>
+<span class="fc bfc" id="L333" title="All 2 branches covered.">            if (!hasNext) {</span>
+<span class="pc bpc" id="L334" title="1 of 2 branches missed.">                if(parser.isPending()) {</span>
+<span class="nc" id="L335">                    throw new IOException(String.format(</span>
+<span class="nc" id="L336">                            ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;unterminated.quote&quot;),</span>
+<span class="nc" id="L337">                            StringUtils.abbreviate(parser.getPendingText(), 100)));</span>
+                }
+<span class="fc" id="L339">                return validateResult(result);</span>
+            }
+<span class="pc bpc" id="L341" title="3 of 4 branches missed.">            if(multilineLimit &gt; 0 &amp;&amp; linesInThisRecord &gt; multilineLimit) {</span>
+<span class="nc" id="L342">                throw new IOException(String.format(errorLocale, ResourceBundle.getBundle(&quot;opencsv&quot;, errorLocale).getString(&quot;multiline.limit.broken&quot;), multilineLimit));</span>
+            }
+<span class="fc" id="L344">            String[] r = parser.parseLineMulti(nextLine);</span>
+<span class="pc bpc" id="L345" title="1 of 2 branches missed.">            if (r.length &gt; 0) {</span>
+<span class="pc bpc" id="L346" title="1 of 2 branches missed.">                if (result == null) {</span>
+<span class="fc" id="L347">                    result = r;</span>
+                } else {
+<span class="nc" id="L349">                    result = combineResultsFromMultipleReads(result, r);</span>
+                }
+            }
+<span class="pc bpc" id="L352" title="1 of 2 branches missed.">        } while (parser.isPending());</span>
+<span class="fc" id="L353">        return validateResult(result);</span>
+    }
+
+    /**
+     * Increments the number of records read if the result passed in is not null.
+     *
+     * @param result The result of the read operation
+     * @return Result that was passed in.
+     */
+    protected String[] validateResult(String[] result) {
+<span class="fc bfc" id="L363" title="All 2 branches covered.">        if (result != null) {</span>
+<span class="fc" id="L364">            recordsRead++;</span>
+        }
+<span class="fc" id="L366">        return result;</span>
+    }
+
+    /**
+     * For multi-line records this method combines the current result with the result from previous read(s).
+     * @param buffer Previous data read for this record
+     * @param lastRead Latest data read for this record.
+     * @return String array with union of the buffer and lastRead arrays.
+     */
+    protected String[] combineResultsFromMultipleReads(String[] buffer, String[] lastRead) {
+<span class="nc" id="L376">        String[] t = new String[buffer.length + lastRead.length];</span>
+<span class="nc" id="L377">        System.arraycopy(buffer, 0, t, 0, buffer.length);</span>
+<span class="nc" id="L378">        System.arraycopy(lastRead, 0, t, buffer.length, lastRead.length);</span>
+<span class="nc" id="L379">        return t;</span>
+    }
+
+    /**
+     * Reads the next line from the file.
+     *
+     * @return The next line from the file without trailing newline, or null if
+     *   there is no more input.
+     * @throws IOException If bad things happen during the read
+     */
+    protected String getNextLine() throws IOException {
+<span class="fc bfc" id="L390" title="All 2 branches covered.">        if (isClosed()) {</span>
+<span class="fc" id="L391">            hasNext = false;</span>
+<span class="fc" id="L392">            return null;</span>
+        }
+
+<span class="pc bpc" id="L395" title="1 of 2 branches missed.">        if (!this.linesSkiped) {</span>
+<span class="pc bpc" id="L396" title="1 of 2 branches missed.">            for (int i = 0; i &lt; skipLines; i++) {</span>
+<span class="nc" id="L397">                lineReader.readLine();</span>
+<span class="nc" id="L398">                linesRead++;</span>
+            }
+<span class="fc" id="L400">            this.linesSkiped = true;</span>
+        }
+<span class="fc" id="L402">        String nextLine = lineReader.readLine();</span>
+<span class="pc bpc" id="L403" title="1 of 2 branches missed.">        if (nextLine == null) {</span>
+<span class="nc" id="L404">            hasNext = false;</span>
+        } else {
+<span class="fc" id="L406">            linesRead++;</span>
+        }
+
+<span class="pc bpc" id="L409" title="1 of 2 branches missed.">        return hasNext ? nextLine : null;</span>
+    }
+    
+    /**
+     * Only useful for tests.
+     * @return The maximum number of lines allowed in a multiline record.
+     */
+    public int getMultilineLimit() {
+<span class="nc" id="L417">        return multilineLimit;</span>
+    }
+    
+    /**
+     * Sets the maximum number of lines allowed in a multiline record.
+     * More than this number in one record results in an IOException.
+     * 
+     * @param multilineLimit No more than this number of lines is allowed in a
+     *   single input record. The default is {@link #DEFAULT_MULTILINE_LIMIT}.
+     * @deprecated Please use {@link CSVReaderBuilder#withMultilineLimit(int)} instead.
+     */
+    @Deprecated
+    public void setMultilineLimit(int multilineLimit) {
+<span class="nc" id="L430">        this.multilineLimit = multilineLimit;</span>
+<span class="nc" id="L431">    }</span>
+
+    /**
+     * Checks to see if the file is closed.
+     * @return True if the reader can no longer be read from.
+     */
+    protected boolean isClosed() {
+<span class="pc bpc" id="L438" title="1 of 2 branches missed.">        if (!verifyReader) {</span>
+<span class="nc" id="L439">            return false;</span>
+        }
+        try {
+<span class="fc" id="L442">            br.mark(READ_AHEAD_LIMIT);</span>
+<span class="fc" id="L443">            int nextByte = br.read();</span>
+<span class="fc" id="L444">            br.reset(); // resets stream position, possible because its buffered</span>
+<span class="fc bfc" id="L445" title="All 2 branches covered.">            return nextByte == -1; // read() returns -1 at end of stream</span>
+<span class="nc" id="L446">        } catch (IOException e) {</span>
+<span class="nc" id="L447">            return true;</span>
+        }
+    }
+
+    /**
+     * Closes the underlying reader.
+     *
+     * @throws IOException If the close fails
+     */
+    @Override
+    public void close() throws IOException {
+<span class="nc" id="L458">        br.close();</span>
+<span class="nc" id="L459">    }</span>
+
+    /**
+     * Creates an Iterator for processing the CSV data.
+     * @return A String[] iterator.
+     */
+    @Override
+    public Iterator&lt;String[]&gt; iterator() {
+        try {
+<span class="nc" id="L468">            CSVIterator it = new CSVIterator(this);</span>
+<span class="nc" id="L469">            it.setErrorLocale(errorLocale);</span>
+<span class="nc" id="L470">            return it;</span>
+<span class="nc" id="L471">        } catch (IOException e) {</span>
+<span class="nc" id="L472">            throw new RuntimeException(e);</span>
+        }
+    }
+
+    /**
+     * Returns if the CSVReader will verify the reader before each read.
+     * &lt;p&gt;
+     * By default the value is true, which is the functionality for version 3.0.
+     * If set to false the reader is always assumed ready to read - this is the functionality
+     * for version 2.4 and before.
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * The reason this method was needed was that certain types of readers would return
+     * false for their ready() methods until a read was done (namely readers created using Channels).
+     * This caused opencsv not to read from those readers.
+     * &lt;/p&gt;
+     *
+     * @return True if CSVReader will verify the reader before reads.  False otherwise.
+     * @see &lt;a href=&quot;https://sourceforge.net/p/opencsv/bugs/108/&quot;&gt;Bug 108&lt;/a&gt;
+     * @since 3.3
+     */
+    public boolean verifyReader() {
+<span class="nc" id="L494">        return this.verifyReader;</span>
+    }
+
+    /**
+     * Used for debugging purposes, this method returns the number of lines that
+     * has been read from the reader passed into the CSVReader.
+     * &lt;p&gt;
+     * Given the following data:&lt;/p&gt;
+     * &lt;pre&gt;
+     * First line in the file
+     * some other descriptive line
+     * a,b,c
+     *
+     * a,&quot;b\nb&quot;,c
+     * &lt;/pre&gt;
+     * &lt;p&gt;
+     * With a CSVReader constructed like so:&lt;br&gt;
+     * &lt;code&gt;
+     * CSVReader c = builder.withCSVParser(new CSVParser())&lt;br&gt;
+     *                      .withSkipLines(2)&lt;br&gt;
+     *                      .build();&lt;br&gt;
+     * &lt;/code&gt;&lt;br&gt;
+     * The initial call to getLinesRead() will be 0. After the first call to
+     * readNext() then getLinesRead() will return 3 (because header was read).
+     * After the second call to read the blank line then getLinesRead() will
+     * return 4 (still a read). After third call to readNext() getLinesRead()
+     * will return 6 because it took two line reads to retrieve this record.
+     * Subsequent calls to readNext() (since we are out of data) will not
+     * increment the number of lines read.&lt;/p&gt;
+     * &lt;p&gt;
+     * An example of this is in the linesAndRecordsRead() test in CSVReaderTest.
+     * &lt;/p&gt;
+     *
+     * @return The number of lines read by the reader (including skip lines).
+     * @see &lt;a href=&quot;https://sourceforge.net/p/opencsv/feature-requests/73/&quot;&gt;Feature Request 73&lt;/a&gt;
+     * @since 3.6
+     */
+    public long getLinesRead() {
+<span class="nc" id="L532">        return linesRead;</span>
+    }
+
+    /**
+     * Used for debugging purposes, this method returns the number of records
+     * that has been read from the CSVReader.
+     * &lt;p&gt;
+     * Given the following data:&lt;/p&gt;
+     * &lt;pre&gt;
+     * First line in the file
+     * some other descriptive line
+     * a,b,c
+     * a,&quot;b\nb&quot;,c
+     * &lt;/pre&gt;&lt;p&gt;
+     * With a CSVReader constructed like so:&lt;br&gt;
+     * &lt;code&gt;
+     * CSVReader c = builder.withCSVParser(new CSVParser())&lt;br&gt;
+     *                      .withSkipLines(2)&lt;br&gt;
+     *                      .build();&lt;br&gt;
+     * &lt;/code&gt;&lt;br&gt;
+     * The initial call to getRecordsRead() will be 0. After the first call to
+     * readNext() then getRecordsRead() will return 1. After the second call to
+     * read the blank line then getRecordsRead() will return 2 (a blank line is
+     * considered a record with one empty field). After third call to readNext()
+     * getRecordsRead() will return 3 because even though it reads to retrieve
+     * this record, it is still a single record read. Subsequent calls to
+     * readNext() (since we are out of data) will not increment the number of
+     * records read.
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * An example of this is in the linesAndRecordsRead() test in CSVReaderTest.
+     * &lt;/p&gt;
+     *
+     * @return The number of records (array of Strings[]) read by the reader.
+     * @see &lt;a href=&quot;https://sourceforge.net/p/opencsv/feature-requests/73/&quot;&gt;Feature Request 73&lt;/a&gt;
+     * @since 3.6
+     */
+    public long getRecordsRead() {
+<span class="nc" id="L570">        return recordsRead;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.6.201602180812</span></div></body></html>
